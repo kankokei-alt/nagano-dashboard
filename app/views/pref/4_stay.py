@@ -1,6 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 from lib import charts, data, ui
 
@@ -27,7 +28,7 @@ ui.insight(
 st.caption("客室稼働率 ＝ 実際に使われた部屋の数 ÷ 泊まれる部屋の数。観光庁「宿泊旅行統計調査」の数字です。")
 
 # ---- 1. 推移 ----
-ui.block("📈 客室稼働率の移り変わり（長野県と全国）", "客室稼働率の推移（長野県と全国）", "全国との差の変化を知りたいとき")
+ui.block("📈 客室稼働率の推移", "長野県と全国、直近12か月の平均")
 r20 = occ["計"].rolling(12).mean().dropna()
 r00 = nat["計"].rolling(12).mean().dropna()
 fig = go.Figure()
@@ -45,24 +46,28 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」" + ("（今年は速報値）" if last.year >= 2026 else ""))
 
 # ---- 2. 宿の種類別 ----
-ui.block("🏨 宿の種類ごとの稼働率", "宿の種類別の稼働率（2019年と比較）", "自分の地域の宿と比べたいとき")
-t = pd.DataFrame({"2019年": y19.reindex(TYPES), "直近12か月": recent.reindex(TYPES)}).dropna()
+ui.block("🏨 タイプ別の稼働率（全国比較）", "直近12か月の平均。全体の稼働率はタイプの構成に左右されます")
+t = pd.DataFrame({"長野県": recent.reindex(TYPES), "全国": recent_nat.reindex(TYPES)}).dropna()
 fig = go.Figure()
-for col, color in [("2019年", charts.CONTEXT), ("直近12か月", charts.MAIN)]:
-    fig.add_trace(go.Bar(x=t.index, y=t[col], name=col if col != "2019年" else "2019年（コロナ前）", marker_color=color,
+for col, color in [("長野県", charts.MAIN), ("全国", charts.CONTEXT)]:
+    fig.add_trace(go.Bar(x=t.index, y=t[col], name=col, marker_color=color,
                          marker_line={"color": "white", "width": 2}, text=[f"{v:.0f}%" for v in t[col]], textposition="outside",
                          hovertemplate=f"%{{x}} {col} %{{y:.1f}}%<extra></extra>"))
-charts.layout(fig, height=330, barmode="group", bargap=0.3)
+charts.layout(fig, height=340, barmode="group", bargap=0.3)
 fig.update_yaxes(title="客室稼働率（%）", ticksuffix="%", range=[0, t.values.max() * 1.18])
 st.plotly_chart(fig, use_container_width=True)
-dd = (t["直近12か月"] - t["2019年"]).sort_values()
+gap_t = (t["長野県"] - t["全国"]).sort_values()
+dd = (recent.reindex(TYPES) - y19.reindex(TYPES)).dropna()
 ui.readout([
-    f"いちばん稼働率が高いのは **{t['直近12か月'].idxmax()}**（{t['直近12か月'].max():.0f}%）、低いのは **{t['直近12か月'].idxmin()}**（{t['直近12か月'].min():.0f}%）。",
-    f"2019年より上がったのは {'・'.join(dd[dd > 0.5].index) or 'なし'}、下がったのは {'・'.join(dd[dd < -0.5].index) or 'なし'} です。",
-], source="観光庁「宿泊旅行統計調査」")
+    f"全体（全タイプ合計）では全国より **{abs(gap_now):.1f}ポイント{'低い' if gap_now < 0 else '高い'}** ですが、"
+    f"タイプ別に見ると差は {gap_t.min():+.1f}〜{gap_t.max():+.1f}ポイントです。",
+    (f"全国より高いのは **{'・'.join(gap_t[gap_t > 0.5].index)}**、" if (gap_t > 0.5).any() else "")
+    + f"差がいちばん大きいのは **{gap_t.index[0]}**（{gap_t.iloc[0]:+.1f}ポイント）です。",
+    f"2019年と比べて上がったのは {'・'.join(dd[dd > 0.5].index) or 'なし'}、下がったのは {'・'.join(dd[dd < -0.5].index) or 'なし'} です。",
+], source="観光庁「宿泊旅行統計調査」（直近12か月の平均）")
 
 # ---- 3. 種類×月 ----
-ui.block("🗓️ 宿の種類ごとの、月ごとの稼働率", "宿の種類別・月別の稼働率", "空きが出やすい月を探したいとき")
+ui.block("🗓️ タイプ別・月別の稼働率", "色が濃いほど高い")
 hm = occ[occ.index.year == fy][[c for c in TYPES if c in occ.columns]].T
 hm.columns = [f"{m}月" for m in hm.columns.month]
 fig = go.Figure(go.Heatmap(
@@ -83,22 +88,29 @@ ui.readout([
 ], source=f"観光庁「宿泊旅行統計調査」（{fy}年）")
 
 # ---- 4. 全国との差 ----
-ui.block("⚖️ 宿の種類ごとの、全国との差", "宿の種類別の、全国との差", "伸びしろの大きい種類を知りたいとき")
-dn = (recent - recent_nat).reindex(TYPES).dropna().sort_values()
-fig = go.Figure(go.Bar(
-    y=dn.index, x=dn.values, orientation="h", marker_color=[charts.MAIN if v >= 0 else charts.SECOND for v in dn.values],
-    text=[f"{v:+.1f}pt" for v in dn.values], textposition="outside", cliponaxis=False,
-    customdata=[[recent[k], recent_nat[k]] for k in dn.index],
-    hovertemplate="%{y}<br>長野県 %{customdata[0]:.1f}% ／ 全国 %{customdata[1]:.1f}%<extra></extra>",
-))
-lim = max(abs(dn).max() * 1.3, 5)
-charts.layout(fig, height=300)
-fig.update_xaxes(range=[-lim, lim], ticksuffix="pt", zeroline=True, zerolinecolor="rgba(128,128,128,.6)")
-fig.update_yaxes(showgrid=False)
+ui.block("📈 タイプ別の推移（全国比較）", "直近12か月の平均")
+types = [c for c in TYPES if c in occ.columns and c in nat.columns]
+r20 = occ[types].rolling(12).mean()
+r00 = nat[types].rolling(12).mean()
+since = pd.Timestamp(2015, 12, 1)
+fig = make_subplots(rows=2, cols=3, subplot_titles=types, shared_xaxes=True, vertical_spacing=0.14)
+for i, c in enumerate(types):
+    for v, label, color, width in [(r00[c], "全国", charts.CONTEXT, 1.5), (r20[c], "長野県", charts.MAIN, 2.5)]:
+        v = v[v.index >= since].dropna()
+        fig.add_trace(go.Scatter(x=v.index, y=v, name=label, mode="lines", line={"color": color, "width": width},
+                                 showlegend=(i == 0), legendgroup=label,
+                                 hovertemplate=f"{c} {label} %{{x|%Y年%-m月}}までの1年間 %{{y:.1f}}%<extra></extra>"),
+                      row=i // 3 + 1, col=i % 3 + 1)
+charts.layout(fig, height=480, legend_below=True)
+fig.update_yaxes(ticksuffix="%", rangemode="tozero")
 st.plotly_chart(fig, use_container_width=True)
+g_now = (r20.iloc[-1] - r00.iloc[-1])
+g_19 = (r20.loc[pd.Timestamp(2019, 12, 1)] - r00.loc[pd.Timestamp(2019, 12, 1)])
+chg = (g_now - g_19).dropna().sort_values()
 ui.readout([
-    f"全国との差がいちばん大きいのは **{dn.index[0]}**（{dn.iloc[0]:+.1f}ポイント）です。",
-    f"全国より高いのは {'・'.join(dn[dn > 0].index)} です。" if (dn > 0).any() else "どの種類も全国より低くなっています。",
+    "いまの全国との差: " + "、".join(f"{k} {v:+.1f}pt" for k, v in g_now.items()) + "。",
+    f"2019年と比べて全国との差が縮まった（長野県が追い上げた）のは **{'・'.join(chg[chg > 0.5].index[::-1]) or 'なし'}**、"
+    f"広がったのは **{'・'.join(chg[chg < -0.5].index) or 'なし'}** です。",
 ], source="観光庁「宿泊旅行統計調査」")
 
 ui.sources(["shukuhaku"])

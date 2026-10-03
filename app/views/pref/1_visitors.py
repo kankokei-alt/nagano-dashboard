@@ -28,7 +28,7 @@ ui.insight(
 )
 
 # ---- 1. 人数とお金の内訳 ----
-ui.block("👥 訪れた人の内訳 ― 人数とお金", "県内・県外・海外の割合（人数とお金）", "誰が地域経済を支えているか知りたいとき")
+ui.block("👥 来訪者の構成", "県内・県外・海外別の、人数と消費額の割合")
 rows = {"visitors": "人数", "spend": "使ったお金"}
 fig = go.Figure()
 for grp, color in WHO:
@@ -51,7 +51,7 @@ ui.readout([
 ], source=f"長野県「観光入込客統計」（観光庁 共通基準, {iy}年）。観光目的とビジネス目的の合計。人数は実人数")
 
 # ---- 2. 移り変わり ----
-ui.block("📈 誰が来ているかの移り変わり（年ごと）", "県内・県外・海外の人数の推移", "どの層が戻っているか知りたいとき")
+ui.block("📈 来訪者数の推移", "県内・県外・海外別、年ごと（実人数）")
 fig = go.Figure()
 for grp, color in WHO:
     v = by_year[grp].dropna() / 1e4
@@ -69,7 +69,7 @@ ui.readout([
 ], source="長野県「観光入込客統計」。2010〜2015年のビジネス目的、2017・2018年の入込客数は参考値")
 
 # ---- 3. 泊まるか日帰りか ----
-ui.block("🛏️ 泊まる人と日帰りの人", "泊まった人の割合と、1人あたりの消費", "泊まってもらう取り組みを考えるとき")
+ui.block("🛏️ 宿泊の割合と消費単価", "泊まった人の割合と、1人あたりの消費額")
 v = cur[cur.measure == "visitors"].groupby(["who", "stay"]).value.sum().unstack()
 stay_share = (v["宿泊"] / v.sum(axis=1)).reindex([w for w, _ in WHO])
 up = cur.groupby(["measure", "stay"]).value.sum().unstack()
@@ -93,47 +93,60 @@ ui.readout([
 ], source=f"長野県「観光入込客統計」（{iy}年）")
 
 # ---- 4. 季節ごと ----
-ui.block("📅 季節ごとの内訳（3か月ごと）", "3か月ごとの来訪者の内訳", "季節ごとの狙いを決めたいとき")
+ui.block("📅 来訪者の季節性", "県内・県外・海外それぞれの1年を100%とした、季節ごとの割合")
 q = d[(d.year == iy) & (d.period != "年計") & (d.measure == "visitors")].groupby(["period", "who"]).value.sum().unstack()
 QL = {"Q1": "1〜3月", "Q2": "4〜6月", "Q3": "7〜9月", "Q4": "10〜12月"}
+qs = q / q.sum()  # それぞれの1年を100%とした割合
 fig = go.Figure()
 for grp, color in WHO:
-    fig.add_trace(go.Bar(x=[QL[p] for p in q.index], y=q[grp] / 1e4, name=grp, marker_color=color,
-                         marker_line={"color": "white", "width": 2},
-                         hovertemplate=f"{grp} %{{x}} %{{y:,.0f}}万人<extra></extra>"))
-charts.layout(fig, height=320, barmode="stack", bargap=0.35, legend_traceorder="normal")
-fig.update_yaxes(title="万人（実人数）")
+    fig.add_trace(go.Bar(x=[QL[p] for p in qs.index], y=qs[grp], name=grp, marker_color=color,
+                         marker_line={"color": "white", "width": 2}, text=[f"{v:.0%}" for v in qs[grp]], textposition="outside",
+                         customdata=q[grp] / 1e4,
+                         hovertemplate=f"{grp} %{{x}}: 1年の %{{y:.1%}}（%{{customdata:,.0f}}万人）<extra></extra>"))
+fig.add_hline(y=0.25, line={"color": "rgba(128,128,128,.6)", "dash": "dot", "width": 1})
+charts.layout(fig, height=330, barmode="group", bargap=0.25, legend_traceorder="normal")
+fig.update_yaxes(tickformat=".0%", title="1年に占める割合", range=[0, qs.values.max() * 1.2])
 st.plotly_chart(fig, use_container_width=True)
-qs = q.div(q.sum(axis=1), axis=0)
+st.caption("点線（25%）は、1年を通して同じだけ来た場合の目安です。")
 ui.readout([
-    f"いちばん人が多いのは **{QL[q.sum(axis=1).idxmax()]}**、少ないのは **{QL[q.sum(axis=1).idxmin()]}** です。",
-    f"海外の人の割合がいちばん高いのは {QL[qs['海外の人'].idxmax()]}（{qs['海外の人'].max():.0%}）"
-    + ("で、スキーシーズンと重なります。" if qs["海外の人"].idxmax() in ("Q1", "Q4") else "です。"),
-    f"県外の人の割合がいちばん高いのは {QL[qs['県外の人'].idxmax()]}（{qs['県外の人'].max():.0%}）です。",
+    f"**{g}** がいちばん多いのは {QL[qs[g].idxmax()]}（1年の {qs[g].max():.0%}）、少ないのは {QL[qs[g].idxmin()]}（{qs[g].min():.0%}）です。"
+    for g, _ in WHO
+] + [
+    f"季節による差がいちばん大きいのは **{(qs.max() - qs.min()).idxmax()}** です。",
 ], source=f"長野県「観光入込客統計」（{iy}年）")
 
 # ---- 5. 観光とビジネス ----
-ui.block("💼 観光で来た人と、仕事で来た人", "ビジネス目的の割合の推移", "出張・会議の需要を知りたいとき")
+ui.block("💼 ビジネス目的の来訪者", "仕事で訪れた人の数と、1人あたりの消費額（年ごと）")
 dom = year[(year.purpose != "訪日外国人")].groupby(["year", "measure", "purpose"]).value.sum().unstack()
-biz = (dom["ビジネス目的"] / dom.sum(axis=1)).unstack()
+bz = dom["ビジネス目的"].unstack()
+tr = dom["観光目的"].unstack()
+c1, c2 = st.columns(2)
+with c1:
+    fig = go.Figure(go.Bar(x=bz.index, y=bz.visitors / 1e4, marker_color=charts.MAIN,
+                           hovertemplate="%{x}年 ビジネス目的 %{y:,.0f}万人<extra></extra>"))
+    charts.layout(fig, height=280, title={"text": "ビジネス目的で訪れた人（万人）", "font": {"size": 14}}, bargap=0.25)
+    fig.update_xaxes(dtick=2)
+    st.plotly_chart(fig, use_container_width=True)
+with c2:
+    fig = go.Figure()
+    for v, label, color in [(bz.spend / bz.visitors, "ビジネス目的", charts.MAIN), (tr.spend / tr.visitors, "観光目的", charts.CONTEXT)]:
+        fig.add_trace(go.Scatter(x=v.index, y=v, name=label, mode="lines+markers", line={"color": color, "width": 2.5},
+                                 hovertemplate=f"%{{x}}年 {label} 1人あたり %{{y:,.0f}}円<extra></extra>"))
+    charts.layout(fig, height=280, title={"text": "1人あたりの消費額（円）", "font": {"size": 14}}, hovermode="x unified")
+    fig.update_xaxes(dtick=2)
+    fig.update_yaxes(rangemode="tozero")
+    st.plotly_chart(fig, use_container_width=True)
 bv = cur[(cur.measure == "visitors") & (cur.purpose != "訪日外国人")].groupby(["purpose", "stay"]).value.sum().unstack()
 bstay = bv["宿泊"] / bv.sum(axis=1)
-fig = go.Figure()
-for m, label, color in [("visitors", "人数に占める割合", charts.MAIN), ("spend", "使ったお金に占める割合", charts.SECOND)]:
-    fig.add_trace(go.Scatter(x=biz.index, y=biz[m], name=label, mode="lines+markers", line={"color": color, "width": 2.5},
-                             hovertemplate=f"%{{x}}年 ビジネス目的の{label} %{{y:.1%}}<extra></extra>"))
-charts.layout(fig, height=300, hovermode="x unified")
-fig.update_yaxes(tickformat=".0%", rangemode="tozero", title="ビジネス目的の割合")
-fig.update_xaxes(dtick=1)
-st.plotly_chart(fig, use_container_width=True)
+bp, tp = bz.spend[iy] / bz.visitors[iy], tr.spend[iy] / tr.visitors[iy]
 ui.readout([
-    f"{iy}年、国内から訪れた人のうちビジネス目的は人数の **{biz.loc[iy, 'visitors']:.0%}**、使ったお金の **{biz.loc[iy, 'spend']:.0%}** です。",
-    f"泊まった人の割合は、ビジネス目的が **{bstay['ビジネス目的']:.0%}**、観光目的が {bstay['観光目的']:.0%} です。"
-    + ("泊まる人が多い分、人数よりお金の割合が大きくなっています。" if biz.loc[iy, "spend"] > biz.loc[iy, "visitors"] else ""),
-], source="長野県「観光入込客統計」。2010〜2015年のビジネス目的は参考値")
+    f"{iy}年にビジネス目的で訪れた人は **{man(bz.visitors[iy])}**（前年より{updown(bz.visitors[iy] / bz.visitors[iy - 1] - 1)}、2019年より{updown(bz.visitors[iy] / bz.visitors[2019] - 1)}）。",
+    f"1人あたりの消費額は、ビジネス目的 **{bp:,.0f}円**、観光目的 {tp:,.0f}円 です。"
+    f"ビジネス目的の人は {bstay['ビジネス目的']:.0%} が泊まっています（観光目的は {bstay['観光目的']:.0%}）。",
+], source="長野県「観光入込客統計」。国内からの来訪者。2010〜2015年のビジネス目的、2017・2018年の入込客数は参考値")
 
 # ---- 6. 宿泊者の県内・県外（月ごと） ----
-ui.block("🏠 泊まった人のうち、県外から来た人の割合（月ごと）", "宿泊者のうち県外の人の割合（月別）", "県内向け・県外向けの時期を決めるとき")
+ui.block("🏠 宿泊者の県外比率", "延べ宿泊者に占める県外居住者の割合（月別）")
 res = data.shukuhaku_residence()
 res["share"] = res.kengai / res.total
 ry = int(res.ym.dt.year.max())

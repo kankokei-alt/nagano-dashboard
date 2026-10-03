@@ -26,17 +26,19 @@ jl = J.index.max()
 j_yoy = J / J.shift(12, freq="MS").reindex(J.index)
 w = by.drop("その他", errors="ignore").rename({"オーストラリア": "豪州"})
 w = w[w.index.isin(J.columns)] / w[w.index.isin(J.columns)].sum()
-wg = (j_yoy[w.index] * w).sum(axis=1) / (j_yoy[w.index].notna() * w).sum(axis=1)
-wg = wg[j_yoy["総数"].notna()]
+top_m = w.sort_values(ascending=False).head(6)  # 長野に多い国・地域
+g3 = J.loc[jl - pd.DateOffset(months=2):jl, top_m.index].sum() / J.loc[
+    jl - pd.DateOffset(months=14):jl - pd.DateOffset(months=12), top_m.index].sum() - 1
 
 ui.insight(
     f"{last.year}年{last.month}月までの1年間に泊まった外国人は延べ <b>{man(f12[last], '人泊')}</b>（前年同期より{updown(f12[last] / f12[ly] - 1)}）。"
     f"{ny}年にいちばん多かったのは <b>{named.index[0]}</b>（{named.iloc[0] / by.sum():.0%}）で、{named.index[1]}・{named.index[2]}が続きます。"
-    f"<br>一足早く分かる全国の訪日客（{jl.year}年{jl.month}月）は、長野のお客さまの国・地域の構成に合わせると前年より{updown(wg[jl] - 1)}です。"
+    f"<br>一足早く分かる全国の訪日客（{jl.year}年{jl.month}月）は前年より{updown(j_yoy.loc[jl, '総数'] - 1)}。"
+    f"長野に多い{top_m.index[0]}は全国で直近3か月 {g3[top_m.index[0]]:+.0%} です。"
 )
 
 # ---- 1. 月ごとの外国人宿泊 ----
-ui.block("📊 外国人の宿泊者数（月ごと）", "外国人延べ宿泊者数（今年・前年・2019年）", "インバウンドの勢いを確かめたいとき")
+ui.block("📊 外国人延べ宿泊者数", "月別、今年・前年・2019年")
 fig = go.Figure()
 for y, label, color, dash in [(2019, "2019年（コロナ前）", charts.CONTEXT, "dot"), (last.year - 1, f"{last.year - 1}年", charts.CONTEXT, "solid"),
                               (last.year, f"{last.year}年", charts.MAIN, "solid")]:
@@ -60,7 +62,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」" + (f"（{last.year}年は速報値）" if s.loc[last].status == "速報" else ""))
 
 # ---- 2. 国・地域別 ----
-ui.block("🌏 どの国・地域から来ているか", "国・地域別の割合と2019年比", "どの市場に向けて動くか決めるとき")
+ui.block("🌏 国・地域別の構成", "外国人延べ宿泊者数の割合と2019年比")
 top = named.head(10)
 bars = pd.concat([top, pd.Series({"そのほか": by.sum() - top.sum()})]).iloc[::-1]
 chg = bars / base.reindex(bars.index) - 1
@@ -83,7 +85,7 @@ ui.readout([
 ], source=f"観光庁「宿泊旅行統計調査」（{ny}年確定値, 参考第1表）。国籍別は従業者10人以上の施設の集計")
 
 # ---- 3. 国・地域×月 ----
-ui.block("🗓️ 国・地域ごとの「来る季節」", "国・地域ごとの月別の割合", "市場ごとの準備時期を決めるとき")
+ui.block("🗓️ 国・地域別の季節性", "各国・地域の1年を100%とした月別の割合")
 hm = nat[(nat.ym.dt.year == ny) & nat.country.isin(top.index)].pivot_table(index="country", columns=nat.ym.dt.month, values="value")
 hm = hm.reindex(top.index)
 hm = hm.div(hm.sum(axis=1), axis=0)
@@ -107,7 +109,7 @@ ui.readout([
 ], source=f"観光庁「宿泊旅行統計調査」（{ny}年確定値）")
 
 # ---- 4. 主な国・地域の推移 ----
-ui.block("📈 主な国・地域の移り変わり（年ごと）", "上位6か国・地域の年ごとの推移", "伸びている市場を見極めたいとき")
+ui.block("📈 主要市場の推移", "上位6か国・地域、年ごと")
 top6 = named.head(6).index
 yr = nat[nat.country.isin(top6)].groupby([nat.ym.dt.year, "country"]).value.sum().unstack()
 fig = make_subplots(rows=2, cols=3, subplot_titles=list(top6), shared_xaxes=True, vertical_spacing=0.14)
@@ -127,7 +129,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」（年の確定値）")
 
 # ---- 5. 県内のどこに泊まっているか ----
-ui.block("📍 県内のどのエリアに泊まっているか", "5エリア別の外国人宿泊と、その割合", "受け入れが進む地域を知りたいとき")
+ui.block("📍 県内エリア別の外国人宿泊", "5エリア別の人数と外国人比率")
 ar = data.shukuhaku_area()
 ay = int(ar.ym.dt.year.max())
 a = ar[ar.ym.dt.year == ay].groupby("area")[["guests", "foreign"]].sum()
@@ -161,42 +163,53 @@ with st.expander("5エリアに入る市町村"):
     st.dataframe(amap, hide_index=True, use_container_width=True)
 
 # ---- 6. 全国の訪日客（先行指標） ----
-ui.block("🛫 全国の訪日客の動き（先行指標）", "全国の訪日客と県の外国人宿泊の前年比", "先行きを早めにつかみたいとき")
+ui.block("🛫 全国の訪日客との比較", "全国の訪日客数（JNTO）と、県の外国人宿泊の前年同月比")
 ng = s.foreign / s.foreign.shift(12, freq="MS").reindex(s.index)
 ev = data.events()
 covid = ev[ev.kind == "covid"]
 cv0, cv1 = covid.start.min().to_period("M").to_timestamp(), covid.end.max().to_period("M").to_timestamp()
-both = pd.DataFrame({"wg": wg, "ng": ng}).dropna()
+tot = j_yoy["総数"]
+both = pd.DataFrame({"tot": tot, "ng": ng}).dropna()
 normal = both[[not (cv0 <= t <= cv1 or cv0 <= t - pd.DateOffset(years=1) <= cv1) for t in both.index]]
-agree = ((normal.wg > 1) == (normal.ng > 1)).mean()
+agree = ((normal.tot > 1) == (normal.ng > 1)).mean()
 lead = (jl.year - last.year) * 12 + jl.month - last.month
 since = jl - pd.DateOffset(months=23)
-fig = go.Figure()
-for label, v, color, dash in [("全国の訪日客（総数）", j_yoy["総数"], charts.CONTEXT, "dot"),
-                              ("全国の訪日客（長野の客層に合わせた伸び）", wg, charts.SECOND, "solid"),
-                              ("長野県の外国人延べ宿泊者", ng, charts.MAIN, "solid")]:
-    v = (v[v.index >= since].dropna() - 1) * 100
-    est = [j_status.get(t) == "推計" and "宿泊" not in label for t in v.index]
-    fig.add_trace(go.Scatter(x=v.index, y=v.values, name=label, mode="lines+markers",
-                             line={"color": color, "width": 3 if "長野県" in label else 2, "dash": dash},
-                             marker={"size": 8, "symbol": ["circle-open" if e else "circle" for e in est]},
-                             hovertemplate=f"{label}<br>%{{x|%Y年%-m月}} 前年同月比 %{{y:+.0f}}%<extra></extra>"))
-fig.add_hline(y=0, line={"color": "rgba(128,128,128,.6)", "width": 1})
-charts.layout(fig, height=360, hovermode="x unified")
-fig.update_yaxes(title="前年同月比（%）", ticksuffix="%")
-fig.update_xaxes(tickformat="%Y年<br>%-m月", dtick="M3")
-st.plotly_chart(fig, use_container_width=True)
-st.caption("白抜きの点は推計値。")
-top_m = w.sort_values(ascending=False).head(6)
-g3 = J.loc[jl - pd.DateOffset(months=2):jl, top_m.index].sum() / J.loc[
-    jl - pd.DateOffset(months=14):jl - pd.DateOffset(months=12), top_m.index].sum() - 1
+c1, c2 = st.columns([3, 2])
+with c1:
+    fig = go.Figure()
+    for label, v, color, dash in [("全国の訪日客数", tot, charts.CONTEXT, "solid"), ("長野県の外国人延べ宿泊者数", ng, charts.MAIN, "solid")]:
+        v = (v[v.index >= since].dropna() - 1) * 100
+        est = [j_status.get(t) == "推計" and "長野" not in label for t in v.index]
+        fig.add_trace(go.Scatter(x=v.index, y=v.values, name=label, mode="lines+markers",
+                                 line={"color": color, "width": 3 if "長野" in label else 2, "dash": dash},
+                                 marker={"size": 8, "symbol": ["circle-open" if e else "circle" for e in est]},
+                                 hovertemplate=f"{label}<br>%{{x|%Y年%-m月}} 前年同月比 %{{y:+.0f}}%<extra></extra>"))
+    fig.add_hline(y=0, line={"color": "rgba(128,128,128,.6)", "width": 1})
+    charts.layout(fig, height=360, hovermode="x unified", title={"text": "前年同月比", "font": {"size": 14}})
+    fig.update_layout(legend={"y": -0.3})  # 2段の日付目盛りと重ならないよう下げる
+    fig.update_yaxes(ticksuffix="%")
+    fig.update_xaxes(tickformat="%Y年<br>%-m月", dtick="M3")
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption("白抜きの点は推計値。")
+with c2:
+    b = g3.iloc[::-1]
+    fig = go.Figure(go.Bar(
+        y=b.index, x=b.values, orientation="h", marker_color=[charts.MAIN if v >= 0 else charts.SECOND for v in b.values],
+        text=[f"{v:+.0%}" for v in b.values], textposition="outside", cliponaxis=False,
+        hovertemplate="%{y}: 全国の訪日客 前年比 %{x:+.1%}<extra></extra>",
+    ))
+    lim = max(abs(b.values).max() * 1.4, 0.1)
+    charts.layout(fig, height=340, title={"text": f"長野に多い国・地域の、全国での伸び（{(jl - pd.DateOffset(months=2)).month}〜{jl.month}月）", "font": {"size": 13}})
+    fig.update_xaxes(tickformat="+.0%", range=[-lim, lim], zeroline=True, zerolinecolor="rgba(128,128,128,.6)")
+    fig.update_yaxes(showgrid=False)
+    st.plotly_chart(fig, use_container_width=True)
+up_c, dn_c = g3.idxmax(), g3.idxmin()
 ui.readout([
-    f"全国の訪日客の数字は、宿泊旅行統計より **{lead}か月早く** 公表されます。",
-    f"長野の客層に合わせた全国の伸びは、コロナ期間を除く過去の月の **{agree:.0%}** で、長野県の外国人宿泊と増減の向きがそろっていました。",
-    f"最新の{jl.year}年{jl.month}月は、全国の総数が前年より{updown(j_yoy.loc[jl, '総数'] - 1)}、長野の客層に合わせると{updown(wg[jl] - 1)}"
-    + ("で、県内の外国人宿泊も前年を下回る可能性があります。" if wg[jl] < 0.995 else
-       "で、県内の外国人宿泊も前年を上回る可能性があります。" if wg[jl] > 1.005 else "で、前年並みになりそうです。"),
-    "長野の主なお客さまの国・地域の、全国での直近3か月の伸び: " + "、".join(f"{c} {v:+.0%}" for c, v in g3.items()) + "。",
+    f"全国の訪日客数は、宿泊旅行統計より **{lead}か月早く** 公表されます。",
+    f"コロナ期間を除く過去の月の **{agree:.0%}** で、全国の訪日客数と長野県の外国人宿泊の増減の向きがそろっていました。",
+    f"最新の{jl.year}年{jl.month}月、全国の訪日客数は前年より **{updown(tot[jl] - 1)}** です。",
+    f"長野に多い国・地域では、**{up_c}** が全国で {g3[up_c]:+.0%}"
+    + (f"、**{dn_c}** が {g3[dn_c]:+.0%} です。" if g3[dn_c] < 0 else " と、どこも前年を上回っています。"),
 ], source="日本政府観光局（JNTO）「訪日外客統計」、観光庁「宿泊旅行統計調査」")
 
 ui.sources(["shukuhaku", "jnto", "irikomi"])

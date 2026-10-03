@@ -9,11 +9,15 @@ SEQ = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95"]  # 量�
 MONTHS = [f"m{i:02d}" for i in range(1, 13)]  # 観光地利用者統計の月別の列
 
 
-def layout(fig: go.Figure, height: int = 340, **kw) -> go.Figure:
+def layout(fig: go.Figure, height: int = 340, legend_below: bool = False, **kw) -> go.Figure:
+    """legend_below=True（またはグラフにタイトルがあるとき）は、凡例をグラフの下に置いてタイトルと重ならないようにする。"""
+    below = legend_below or "title" in kw
+    legend = ({"orientation": "h", "yanchor": "top", "y": -0.12, "x": 0} if below
+              else {"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0})
     fig.update_layout(
-        height=height, margin={"l": 10, "r": 10, "t": 30, "b": 10},
+        height=height, margin={"l": 10, "r": 10, "t": 40 if "title" in kw else 30, "b": 10},
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
+        legend=legend,
         hoverlabel={"namelength": -1}, separators=".,", **kw,
     )
     fig.update_xaxes(showgrid=False, linecolor="rgba(128,128,128,.4)")

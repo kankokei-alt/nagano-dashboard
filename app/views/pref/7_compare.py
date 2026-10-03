@@ -17,6 +17,7 @@ cur = w[win].groupby(level=0)[["guests", "foreign"]].sum()
 cur["occupancy"] = w[win].groupby(level=0).occupancy.mean()
 cur["foreign_share"] = cur.foreign / cur.guests
 cur["vs2019"] = cur.guests / w[win19].groupby(level=0).guests.sum() - 1
+cur["foreign_vs2019"] = cur.foreign / w[win19].groupby(level=0).foreign.sum() - 1
 rank = cur.rank(ascending=False)
 N = "長野県"
 period = f"{(last - pd.DateOffset(months=11)).year}年{(last - pd.DateOffset(months=11)).month}月〜{last.year}年{last.month}月"
@@ -26,10 +27,12 @@ ui.insight(
     f"コロナ前（2019年の同じ期間）からの伸びは {cur.loc[N, 'vs2019']:+.0%} で全国{int(rank.loc[N, 'vs2019'])}位、"
     f"外国人の割合は {cur.loc[N, 'foreign_share']:.0%} で{int(rank.loc[N, 'foreign_share'])}位、"
     f"客室稼働率は {cur.loc[N, 'occupancy']:.0f}% で{int(rank.loc[N, 'occupancy'])}位です。"
+    f"<br>インバウンドに絞ると、外国人延べ宿泊者数は <b>全国{int(rank.loc[N, 'foreign'])}位</b>（{man(cur.loc[N, 'foreign'], '人泊')}）、"
+    f"2019年からの伸びは {cur.loc[N, 'foreign_vs2019']:+.0%} で{int(rank.loc[N, 'foreign_vs2019'])}位です。"
 )
 
 # ---- 1. ランキング ----
-ui.block("🏆 延べ宿泊者数の多い都道府県", "直近12か月の延べ宿泊者数の上位", "全国での長野県の規模を知りたいとき")
+ui.block("🏆 延べ宿泊者数の都道府県順位", "直近12か月、上位20")
 top = cur.guests.sort_values(ascending=False)
 show = top.head(20)
 if N not in show.index:
@@ -51,8 +54,40 @@ ui.readout([
     f"1位の{top.index[0]}は長野県の約 {top.iloc[0] / top[N]:.1f} 倍です。",
 ], source="観光庁「宿泊旅行統計調査」" + ("（今年は速報値）" if last.year >= 2026 else ""))
 
-# ---- 2. 散布図 ----
-ui.block("🧭 コロナ前からの伸びと、外国人の割合", "2019年比の伸び（横）と外国人の割合（縦）", "長野県の立ち位置を知りたいとき")
+# ---- 2. インバウンドの全国順位 ----
+ui.block("🌏 インバウンドの全国順位", "外国人延べ宿泊者数（直近12か月）、上位20と長野県")
+cols = st.columns(3)
+for c, (key, label, fmt) in zip(cols, [("foreign", "外国人延べ宿泊者数", lambda v: man(v, "人泊")),
+                                       ("foreign_share", "宿泊者に占める外国人の割合", lambda v: f"{v:.1%}"),
+                                       ("foreign_vs2019", "外国人宿泊の2019年比", lambda v: f"{v:+.0%}")]):
+    with c:
+        ui.kpi(label, f"全国{int(rank.loc[N, key])}位", f"長野県 {fmt(cur.loc[N, key])}／全国の中央値 {fmt(cur[key].median())}")
+ft = cur.foreign.sort_values(ascending=False)
+show = ft.head(20)
+if N not in show.index:
+    show = pd.concat([show, ft[[N]]])
+show = show.iloc[::-1]
+fig = go.Figure(go.Bar(
+    y=show.index, x=show / 1e4, orientation="h",
+    marker_color=[charts.MAIN if k == N else charts.CONTEXT for k in show.index],
+    text=[f"{v / 1e4:,.0f}万（{cur.loc[k, 'foreign_share']:.0%}）" for k, v in show.items()], textposition="outside", cliponaxis=False,
+    hovertemplate="%{y} %{x:,.1f}万人泊<extra></extra>",
+))
+charts.layout(fig, height=560)
+fig.update_xaxes(title="外国人延べ宿泊者数（万人泊）", range=[0, show.max() / 1e4 * 1.25])
+fig.update_yaxes(showgrid=False)
+st.plotly_chart(fig, use_container_width=True)
+fn = ft.index.get_loc(N)
+non_metro = ft.drop(["東京都", "大阪府", "京都府", "北海道", "沖縄県", "千葉県", "福岡県", "愛知県", "神奈川県"], errors="ignore")
+ui.readout([
+    f"長野県の外国人延べ宿泊者数は **全国{fn + 1}位**。すぐ上は {ft.index[fn - 1]}、すぐ下は {ft.index[fn + 1]} です。",
+    f"三大都市圏・北海道・沖縄・福岡を除くと **{list(non_metro.index).index(N) + 1}位** です。",
+    f"宿泊者に占める外国人の割合は {cur.loc[N, 'foreign_share']:.1%}（全国{int(rank.loc[N, 'foreign_share'])}位）、"
+    f"2019年からの伸びは {cur.loc[N, 'foreign_vs2019']:+.0%}（全国{int(rank.loc[N, 'foreign_vs2019'])}位）です。",
+], source="観光庁「宿泊旅行統計調査」。棒の（ ）内は宿泊者に占める外国人の割合")
+
+# ---- 3. 散布図 ----
+ui.block("🧭 回復と外国人比率の位置", "横：2019年比の伸び、縦：外国人比率、円の大きさ：延べ宿泊者数")
 LABEL = {N, "北海道", "東京都", "京都府", "大阪府", "沖縄県", "新潟県", "山梨県", "岐阜県", "群馬県", "静岡県", "石川県"}
 fig = go.Figure()
 for is_n in (False, True):
@@ -78,7 +113,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」")
 
 # ---- 3. 似た県と比べる ----
-ui.block("🏔️ 似た県と比べる", "似た県との回復の比較（2019年＝100）", "似た観光地を持つ県と比べたいとき")
+ui.block("🏔️ 類似県との比較", "延べ宿泊者数（直近12か月合計）、2019年＝100")
 prefs = sorted(cur.index, key=lambda k: a[a.pref_name == k].pref_code.iloc[0])
 peers = st.multiselect("比べる県", [p for p in prefs if p != N], default=["新潟県", "群馬県", "山梨県", "岐阜県", "北海道"])
 g = w.guests.unstack(0).sort_index()

@@ -18,10 +18,8 @@ CSS = """
           padding: 1.2rem; opacity: .85; text-align: center;}
 .blk {margin: 2.2rem 0 .4rem; padding-top: 1rem; border-top: 1px solid rgba(128,128,128,.25);}
 .blk h3 {margin: 0 0 .5rem; font-size: 1.35rem;}
-.blk .q {display: flex; gap: .6rem; margin: .15rem 0; font-size: .95rem; line-height: 1.55;}
-.blk .tag {flex: 0 0 auto; font-size: .75rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px;
-           background: rgba(42,120,214,.12); color: #2a78d6; height: fit-content; margin-top: .15rem;}
-.blk .tag.when {background: rgba(128,128,128,.14); color: inherit; opacity: .85;}
+.blk h3 {margin-bottom: .15rem;}
+.blk .desc {font-size: .92rem; opacity: .7;}
 [class*="st-key-readout"] {background: rgba(27,175,122,.07); border-left: 5px solid #1baf7a;
                            border-radius: 6px; padding: .7rem 1rem .4rem;}
 [class*="st-key-readout"] p, [class*="st-key-readout"] li {font-size: 1rem; line-height: 1.65;}
@@ -37,14 +35,10 @@ CSS = """
 _n = {"readout": 0}
 
 
-def block(title: str, what: str, when: str) -> None:
-    """グラフの見出し。「何がわかる？」「こんなときに見る」を必ず添える。"""
-    st.markdown(
-        f'<div class="blk"><h3>{title}</h3>'
-        f'<div class="q"><span class="tag">何がわかる？</span><span>{what}</span></div>'
-        f'<div class="q"><span class="tag when">こんなときに見る</span><span>{when}</span></div></div>',
-        unsafe_allow_html=True,
-    )
+def block(title: str, desc: str = "") -> None:
+    """グラフの見出し。端的なタイトルと、その下に1行の説明。"""
+    st.markdown(f'<div class="blk"><h3>{title}</h3>' + (f'<div class="desc">{desc}</div>' if desc else "") + "</div>",
+                unsafe_allow_html=True)
 
 
 def readout(points: list[str], source: str = "") -> None:

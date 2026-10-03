@@ -70,7 +70,7 @@ with cols[2]:
            f"{m['n_origins']}回の予測で、1〜12か月先を平均して")
 
 # ---- 予測のグラフ ----
-ui.block("📈 これまでの実績と、この先12か月の予測", "実績と12か月先の予測（帯は予測の幅）", "販促や人の手配を早めに考えるとき")
+ui.block("📈 客室稼働率の予測", "実績と12か月先の予測（帯は予測の幅）")
 since = last - pd.DateOffset(months=23)
 h = hist[hist.index >= since]
 fig = go.Figure()
@@ -116,7 +116,7 @@ with st.expander("月ごとの予測の数字"):
     st.dataframe(tbl, hide_index=True, use_container_width=True)
 
 # ---- 何が効いているか ----
-ui.block("🧩 予測の手がかり（何が上げ下げしているか）", "予測を上げ下げしている手がかり", "予測の理由を説明したいとき")
+ui.block("🧩 予測の内訳", "予測を上げ下げしている要因（月を選択）")
 clue_cols = [c for c in fc.columns if c.startswith("c_")]
 contrib = fc.set_index("ym")[clue_cols].rename(columns=lambda c: c[2:])
 mon = st.select_slider("月を選ぶ", options=list(fc.ym), format_func=ym, value=fc.ym.iloc[0])
@@ -147,7 +147,7 @@ ui.readout([
 ])
 
 # ---- 当たったか ----
-ui.block("🎯 過去の年で、当てられたか", "過去の予測と実績のずれ", "予測をどこまで信用できるか知りたいとき")
+ui.block("🎯 予測の精度", "過去の予測と実績のずれ")
 e = bt.assign(**{k: (bt[k] - bt.actual).abs() for k in ["seasonal", "model"]})
 e["区分"] = pd.cut(e.h, [0, 3, 6, 12], labels=["1〜3か月先", "4〜6か月先", "7〜12か月先"])
 g = e.groupby("区分", observed=True)[["seasonal", "model"]].mean()
@@ -175,7 +175,7 @@ ui.readout([
 ])
 
 # ---- ほかの指標 ----
-ui.block("🔬 ほかの指標も試しました（物価・景気・消費者の気持ち）", "物価・景気の指標を加えた検証の結果", "物価や景気が予測に効くか知りたいとき")
+ui.block("🔬 物価・景気指標の検証", "加えたときの予測のずれの変化（左ほど改善）")
 log = pd.DataFrame(meta.get("selection_log", []))
 if not log.empty:
     base_mae = log.loc[log.step == 0, "mae"].iloc[0]
@@ -204,7 +204,7 @@ if not log.empty:
     ], source="総務省「消費者物価指数」、内閣府「景気ウォッチャー調査」「景気動向指数」（いずれも e-Stat）")
 
 # ---- 雪の状況 ----
-ui.block("❄️ 雪の状況（スキー場の多い地点）", "スキー場の多い3地点の、冬ごとの最深積雪", "今年の雪を例年と比べたいとき")
+ui.block("❄️ スキー場周辺の積雪", "白馬・野沢温泉・菅平、冬ごとの最深積雪")
 wx = data.weather()
 ski = wx[wx.station.isin(meta["snow_stations"])].copy()
 ski["season"] = ski.ym.dt.year + (ski.ym.dt.month >= 8)  # 寒候年（8月〜翌7月）

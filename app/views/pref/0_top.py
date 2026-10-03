@@ -50,7 +50,7 @@ if cur.status == "速報":
                "前年との比較には見直しの影響が含まれることがあります（観光庁）。")
 
 # ---- A. 今年の積み上げ ----
-ui.block(f"📈 {Y}年の進み具合（1月からの積み上げ）", "延べ宿泊者数の累計を前年・2019年と比較", "今年が前年より多いか少ないか知りたいとき")
+ui.block(f"📈 {Y}年の延べ宿泊者数（累計）", "1月からの積み上げを前年・2019年と比較")
 fig = go.Figure()
 for y, label, color, dash, width in [(2019, "2019年（コロナ前）", charts.CONTEXT, "dot", 2),
                                      (Y - 1, f"{Y - 1}年", charts.CONTEXT, "solid", 2), (Y, f"{Y}年", charts.MAIN, "solid", 4)]:
@@ -92,7 +92,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」" + (f"（{Y}年は速報値）" if cur.status == "速報" else ""))
 
 # ---- B. 年ごとの推移 ----
-ui.block("📊 長野県に泊まった人の数（年ごと）", "延べ宿泊者数の年ごとの推移", "観光の規模の変化を知りたいとき")
+ui.block("📊 延べ宿泊者数の推移", "日本人・外国人別、年ごと")
 fig = go.Figure()
 for col, label, color in [("japanese", "日本人", charts.MAIN), ("foreign", "外国人", charts.SECOND)]:
     fig.add_trace(go.Bar(x=ann.index, y=ann[col] / 1e4, name=label, marker_color=color,
@@ -112,7 +112,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」")
 
 # ---- C. 訪れた人と使ったお金 ----
-ui.block("💴 県を訪れた人の数と、使ったお金（年ごと）", "実人数と観光消費額の推移", "経済効果の大きさを知りたいとき")
+ui.block("💴 観光入込客数と観光消費額", "日帰りを含む実人数と、県内で使われたお金（年ごと）")
 c1, c2 = st.columns(2)
 for col, key, title, unit, fmt in [(c1, "visitors", "県を訪れた人（実人数）", "万人", lambda v: f"{v / 1e4:,.0f}万人"),
                                    (c2, "spend", "観光消費額", "億円", lambda v: yen(v))]:
