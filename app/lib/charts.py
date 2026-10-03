@@ -48,7 +48,8 @@ def updown(x: float) -> str:
     """増減を言葉で。±0.5% 未満は「ほぼ同じ」。"""
     if abs(x) < 0.005:
         return "ほぼ同じ"
-    return f"{abs(x):.0%}増" if x > 0 else f"{abs(x):.0%}減"
+    v = f"{abs(x):.1%}" if abs(x) < 0.1 else f"{abs(x):.0%}"  # 10%未満は小数1桁（カードの数字とそろえる）
+    return f"{v}増" if x > 0 else f"{v}減"
 
 
 def spread(values: dict[str, float], gap: float) -> dict[str, float]:

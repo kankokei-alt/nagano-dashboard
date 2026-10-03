@@ -4,7 +4,7 @@ import streamlit as st
 
 from lib import charts, data, ui
 
-ui.setup("宿と稼働率", "長野県のホテル・旅館の部屋がどのくらい埋まっているか（客室稼働率）を、宿の種類ごと・月ごとに見るページです。")
+ui.setup("宿と稼働率", "部屋がどのくらい埋まっているか（客室稼働率）を宿の種類・月ごとに。")
 
 occ = data.shukuhaku_occupancy("20")
 nat = data.shukuhaku_occupancy("00")
@@ -27,9 +27,7 @@ ui.insight(
 st.caption("客室稼働率 ＝ 実際に使われた部屋の数 ÷ 泊まれる部屋の数。観光庁「宿泊旅行統計調査」の数字です。")
 
 # ---- 1. 推移 ----
-ui.block("📈 客室稼働率の移り変わり（長野県と全国）",
-         "長野県と全国の客室稼働率を、季節の波をならすために直近12か月の平均で比べたもの",
-         "長野県の宿の埋まり具合が、全国と比べて回復しているか、差が縮まっているかを知りたいとき")
+ui.block("📈 客室稼働率の移り変わり（長野県と全国）", "客室稼働率の推移（長野県と全国）", "全国との差の変化を知りたいとき")
 r20 = occ["計"].rolling(12).mean().dropna()
 r00 = nat["計"].rolling(12).mean().dropna()
 fig = go.Figure()
@@ -47,9 +45,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」" + ("（今年は速報値）" if last.year >= 2026 else ""))
 
 # ---- 2. 宿の種類別 ----
-ui.block("🏨 宿の種類ごとの稼働率",
-         "旅館・リゾートホテル・ビジネスホテルなど、宿の種類ごとの客室稼働率（直近12か月の平均）を、コロナ前（2019年）と比べたもの",
-         "自分の地域の宿の種類と比べて、県全体の傾向を知りたいとき")
+ui.block("🏨 宿の種類ごとの稼働率", "宿の種類別の稼働率（2019年と比較）", "自分の地域の宿と比べたいとき")
 t = pd.DataFrame({"2019年": y19.reindex(TYPES), "直近12か月": recent.reindex(TYPES)}).dropna()
 fig = go.Figure()
 for col, color in [("2019年", charts.CONTEXT), ("直近12か月", charts.MAIN)]:
@@ -66,9 +62,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」")
 
 # ---- 3. 種類×月 ----
-ui.block("🗓️ 宿の種類ごとの、月ごとの稼働率",
-         f"{fy}年の客室稼働率を、宿の種類（縦）と月（横）で並べたもの。色が濃いほど埋まっている",
-         "宿の種類ごとに、空きが出やすい月（てこ入れの余地がある月）を探したいとき")
+ui.block("🗓️ 宿の種類ごとの、月ごとの稼働率", "宿の種類別・月別の稼働率", "空きが出やすい月を探したいとき")
 hm = occ[occ.index.year == fy][[c for c in TYPES if c in occ.columns]].T
 hm.columns = [f"{m}月" for m in hm.columns.month]
 fig = go.Figure(go.Heatmap(
@@ -89,9 +83,7 @@ ui.readout([
 ], source=f"観光庁「宿泊旅行統計調査」（{fy}年）")
 
 # ---- 4. 全国との差 ----
-ui.block("⚖️ 宿の種類ごとの、全国との差",
-         "直近12か月の客室稼働率について、長野県から全国を引いた差。右（青）なら全国より高く、左（オレンジ）なら低い",
-         "長野県の宿のうち、全国と比べて伸びしろの大きい種類を知りたいとき")
+ui.block("⚖️ 宿の種類ごとの、全国との差", "宿の種類別の、全国との差", "伸びしろの大きい種類を知りたいとき")
 dn = (recent - recent_nat).reindex(TYPES).dropna().sort_values()
 fig = go.Figure(go.Bar(
     y=dn.index, x=dn.values, orientation="h", marker_color=[charts.MAIN if v >= 0 else charts.SECOND for v in dn.values],

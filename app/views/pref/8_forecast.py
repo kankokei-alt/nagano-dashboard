@@ -4,7 +4,7 @@ import streamlit as st
 
 from lib import charts, data, ui
 
-ui.setup("これからの見通し（ベータ版）", "長野県の客室稼働率が、この先12か月どうなりそうかを月ごとに予測するページです（試作中）。")
+ui.setup("これからの見通し（ベータ版）", "客室稼働率の12か月先までの見通し（試作中）。")
 
 meta = data.forecast_meta()
 fc_all = data.forecast()
@@ -70,9 +70,7 @@ with cols[2]:
            f"{m['n_origins']}回の予測で、1〜12か月先を平均して")
 
 # ---- 予測のグラフ ----
-ui.block("📈 これまでの実績と、この先12か月の予測",
-         f"{NAMES[fac]}の客室稼働率の、直近2年の実績（実線）と、この先12か月の予測（破線）。帯は「このくらいの幅に収まりそう」という範囲",
-         "この先の繁忙期・閑散期の埋まり具合の見当をつけて、販促や人の手配を早めに考えたいとき")
+ui.block("📈 これまでの実績と、この先12か月の予測", "実績と12か月先の予測（帯は予測の幅）", "販促や人の手配を早めに考えるとき")
 since = last - pd.DateOffset(months=23)
 h = hist[hist.index >= since]
 fig = go.Figure()
@@ -118,9 +116,7 @@ with st.expander("月ごとの予測の数字"):
     st.dataframe(tbl, hide_index=True, use_container_width=True)
 
 # ---- 何が効いているか ----
-ui.block("🧩 予測の手がかり（何が上げ下げしているか）",
-         "②の手がかり入りモデルが、①の季節パターンからどの手がかりでどれだけ上げ下げしているか（選んだ月）",
-         "予測の理由を説明したいとき／休日の並びやイベントがどのくらい効いているかを知りたいとき")
+ui.block("🧩 予測の手がかり（何が上げ下げしているか）", "予測を上げ下げしている手がかり", "予測の理由を説明したいとき")
 clue_cols = [c for c in fc.columns if c.startswith("c_")]
 contrib = fc.set_index("ym")[clue_cols].rename(columns=lambda c: c[2:])
 mon = st.select_slider("月を選ぶ", options=list(fc.ym), format_func=ym, value=fc.ym.iloc[0])
@@ -151,9 +147,7 @@ ui.readout([
 ])
 
 # ---- 当たったか ----
-ui.block("🎯 過去の年で、当てられたか",
-         "過去の各時点から1〜12か月先を予測して、実際の値とどれだけずれたか（①と②の比較）",
-         "この予測をどのくらい信用してよいかを知りたいとき")
+ui.block("🎯 過去の年で、当てられたか", "過去の予測と実績のずれ", "予測をどこまで信用できるか知りたいとき")
 e = bt.assign(**{k: (bt[k] - bt.actual).abs() for k in ["seasonal", "model"]})
 e["区分"] = pd.cut(e.h, [0, 3, 6, 12], labels=["1〜3か月先", "4〜6か月先", "7〜12か月先"])
 g = e.groupby("区分", observed=True)[["seasonal", "model"]].mean()
@@ -181,10 +175,7 @@ ui.readout([
 ])
 
 # ---- ほかの指標 ----
-ui.block("🔬 ほかの指標も試しました（物価・景気・消費者の気持ち）",
-         "全国の物価（消費者物価指数）、宿泊料の値段、景気ウォッチャー（旅行業界・甲信越の先行き）、消費者態度指数を②に加えたとき、"
-         "過去の検証で予測のずれが小さくなったか",
-         "物価高や景気の先行きが、長野県の宿の埋まり具合の予測に役立つかを知りたいとき")
+ui.block("🔬 ほかの指標も試しました（物価・景気・消費者の気持ち）", "物価・景気の指標を加えた検証の結果", "物価や景気が予測に効くか知りたいとき")
 log = pd.DataFrame(meta.get("selection_log", []))
 if not log.empty:
     base_mae = log.loc[log.step == 0, "mae"].iloc[0]
@@ -213,9 +204,7 @@ if not log.empty:
     ], source="総務省「消費者物価指数」、内閣府「景気ウォッチャー調査」「景気動向指数」（いずれも e-Stat）")
 
 # ---- 雪の状況 ----
-ui.block("❄️ 雪の状況（スキー場の多い地点）",
-         f"{'・'.join(meta['snow_stations'])}の、冬ごとの最深積雪",
-         "この冬の雪がどうだったか、例年と比べてどうかを確かめたいとき")
+ui.block("❄️ 雪の状況（スキー場の多い地点）", "スキー場の多い3地点の、冬ごとの最深積雪", "今年の雪を例年と比べたいとき")
 wx = data.weather()
 ski = wx[wx.station.isin(meta["snow_stations"])].copy()
 ski["season"] = ski.ym.dt.year + (ski.ym.dt.month >= 8)  # 寒候年（8月〜翌7月）

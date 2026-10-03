@@ -6,8 +6,7 @@ import streamlit as st
 from lib import charts, data, ui
 from lib.charts import man, updown
 
-ui.setup("いつ来ている？", "長野県の観光の「季節の波」を見るページです。月ごとの多い・少ない、日本人と外国人の違い、"
-         "観光地の種類ごとの違い、休日や雪との関係を見ます。")
+ui.setup("いつ来ている？", "季節の波と、日本人・外国人の違い、雪や休日との関係。")
 
 s = data.shukuhaku()
 last = s.index.max()
@@ -23,9 +22,7 @@ ui.insight(
 )
 
 # ---- 1. 月ごとの宿泊者数 ----
-ui.block("📊 月ごとの延べ宿泊者数（今年・前年・コロナ前）",
-         "長野県に泊まった人の延べ人数を月ごとに並べ、今年・前年・2019年（コロナ前）を重ねたもの",
-         "繁忙期と閑散期をつかみたいとき／今年のある月が例年より多いか少ないかを確かめたいとき")
+ui.block("📊 月ごとの延べ宿泊者数（今年・前年・コロナ前）", "月別の延べ宿泊者数（今年・前年・2019年）", "繁忙期・閑散期をつかみたいとき")
 fig = go.Figure()
 for y, label, color, dash in [(2019, "2019年（コロナ前）", charts.CONTEXT, "dot"), (fy, f"{fy}年", charts.CONTEXT, "solid"),
                               (last.year, f"{last.year}年", charts.MAIN, "solid")]:
@@ -44,13 +41,12 @@ ui.readout([
     f"{fy}年は **{full.guests.idxmax().month}月**" + ("（夏休み）" if full.guests.idxmax().month == 8 else "") + "がいちばん多く、"
     f"次いで {full.guests.drop(full.guests.idxmax()).idxmax().month}月です。",
     f"{last.year}年に入ってから前年を上回った月: {'、'.join(f'{m}月' for m in diff[diff > 0.005].index) or 'なし'}／"
-    f"下回った月: {'、'.join(f'{m}月' for m in diff[diff < -0.005].index) or 'なし'}。",
+    + (f"ほぼ前年並み（±0.5%未満）: {'、'.join(f'{m}月' for m in diff[diff.abs() <= 0.005].index)}／" if (diff.abs() <= 0.005).any() else "")
+    + f"下回った月: {'、'.join(f'{m}月' for m in diff[diff < -0.005].index) or 'なし'}。",
 ], source="観光庁「宿泊旅行統計調査」" + ("（今年は速報値。層化基準の見直しの影響を含むことがあります）" if s.loc[last].status == "速報" else ""))
 
 # ---- 2. 日本人と外国人の季節 ----
-ui.block("🎌 日本人と外国人で、季節の山が違う",
-         f"{fy}年の1年間の宿泊を100%としたとき、各月が何%を占めるかを、日本人と外国人で比べたもの",
-         "閑散期を埋めるのに、どちらのお客さまに働きかけるとよいかを考えるとき")
+ui.block("🎌 日本人と外国人で、季節の山が違う", "月別の割合を日本人・外国人で比較", "閑散期を埋める相手を考えるとき")
 sh = full[["japanese", "foreign"]] / full[["japanese", "foreign"]].sum()
 fig = go.Figure()
 for col, label, color in [("japanese", "日本人", charts.MAIN), ("foreign", "外国人", charts.SECOND)]:
@@ -70,9 +66,7 @@ ui.readout([
 ], source=f"観光庁「宿泊旅行統計調査」（{fy}年）")
 
 # ---- 3. 観光地の種類ごとの季節 ----
-ui.block("⛰️ 観光地の種類ごとの季節",
-         "県の観光地利用者統計で、観光地の種類（山岳・高原・温泉・名所旧跡）ごとに、何月に人が多いか（1年を100%とした割合）",
-         "自分の地域の観光地の「売り」の季節と、手薄な季節を確かめたいとき")
+ui.block("⛰️ 観光地の種類ごとの季節", "観光地の種類別・月別の割合", "観光地の売りの季節を知りたいとき")
 sp = data.riyousha_spots()
 ry = int(sp.year.max())
 cat = sp[sp.year == ry].groupby("category")[charts.MONTHS].sum()
@@ -94,9 +88,7 @@ ui.readout([
 ], source=f"長野県「観光地利用者統計調査」（{ry}年）。スキー場は調査の対象外のため含まれていません")
 
 # ---- 4. 雪と冬の宿泊 ----
-ui.block("❄️ 雪の多い冬は、泊まる人も多い？",
-         "冬（12〜3月）の宿泊者数の前年比と、その冬のスキー場の多い地点（白馬・野沢温泉・菅平）の最深積雪の関係",
-         "雪不足の冬にどのくらい影響が出そうかの目安がほしいとき")
+ui.block("❄️ 雪の多い冬は、泊まる人も多い？", "冬の積雪と、冬の宿泊の前年比", "雪不足の影響の目安がほしいとき")
 wx = data.weather()
 ski = wx[wx.station.isin(["白馬", "野沢温泉", "菅平"])].copy()
 ski["season"] = ski.ym.dt.year + (ski.ym.dt.month >= 8)
@@ -138,9 +130,7 @@ ui.readout([
 ], source="気象庁「過去の気象データ」、観光庁「宿泊旅行統計調査」")
 
 # ---- 5. この先の休日カレンダー ----
-ui.block("🗓️ この先12か月の休みの多さ",
-         "これからの各月の休日（土日・祝日・年末年始）の数が、例年（2015〜2025年の平均）より多いか少ないか",
-         "連休の多い月に合わせた企画や、休みの少ない月の早めの販促を考えるとき")
+ui.block("🗓️ この先12か月の休みの多さ", "今後12か月の休日数（例年との差）", "連休に合わせた企画を考えるとき")
 cal = data.calendar_monthly()
 cal["month"] = pd.to_datetime(cal.month)
 cal["m"] = cal.month.dt.month

@@ -5,8 +5,7 @@ import streamlit as st
 from lib import charts, data, ui
 from lib.charts import man, updown, yen
 
-ui.setup("誰が来ている？", "長野県を訪れている人が、県内の人か・県外の人か・海外の人か、日帰りか泊まりか、"
-         "観光か仕事かを見るページです。")
+ui.setup("誰が来ている？", "県内・県外・海外、日帰りか泊まりか、観光か仕事か。")
 
 ir = data.irikomi()
 iy = int(ir.year.max())
@@ -29,9 +28,7 @@ ui.insight(
 )
 
 # ---- 1. 人数とお金の内訳 ----
-ui.block("👥 訪れた人の内訳 ― 人数とお金",
-         f"{iy}年に長野県を訪れた人（実人数）と、その人たちが使ったお金を、県内・県外・海外に分けた割合",
-         "どのお客さまが地域の経済をいちばん支えているかを知りたいとき／誰に向けて取り組むかを考えるとき")
+ui.block("👥 訪れた人の内訳 ― 人数とお金", "県内・県外・海外の割合（人数とお金）", "誰が地域経済を支えているか知りたいとき")
 rows = {"visitors": "人数", "spend": "使ったお金"}
 fig = go.Figure()
 for grp, color in WHO:
@@ -54,9 +51,7 @@ ui.readout([
 ], source=f"長野県「観光入込客統計」（観光庁 共通基準, {iy}年）。観光目的とビジネス目的の合計。人数は実人数")
 
 # ---- 2. 移り変わり ----
-ui.block("📈 誰が来ているかの移り変わり（年ごと）",
-         "県内・県外・海外の人それぞれの人数が、年ごとにどう変わってきたか",
-         "コロナからの戻り方がお客さまによって違うか、どの層が伸びているかを知りたいとき")
+ui.block("📈 誰が来ているかの移り変わり（年ごと）", "県内・県外・海外の人数の推移", "どの層が戻っているか知りたいとき")
 fig = go.Figure()
 for grp, color in WHO:
     v = by_year[grp].dropna() / 1e4
@@ -74,9 +69,7 @@ ui.readout([
 ], source="長野県「観光入込客統計」。2010〜2015年のビジネス目的、2017・2018年の入込客数は参考値")
 
 # ---- 3. 泊まるか日帰りか ----
-ui.block("🛏️ 泊まる人と日帰りの人",
-         "県内・県外・海外の人それぞれで、泊まった人の割合と、泊まりと日帰りで使うお金の違い",
-         "泊まってもらう取り組み（夜のイベント・連泊の提案など）がどの層に効きそうかを考えるとき")
+ui.block("🛏️ 泊まる人と日帰りの人", "泊まった人の割合と、1人あたりの消費", "泊まってもらう取り組みを考えるとき")
 v = cur[cur.measure == "visitors"].groupby(["who", "stay"]).value.sum().unstack()
 stay_share = (v["宿泊"] / v.sum(axis=1)).reindex([w for w, _ in WHO])
 up = cur.groupby(["measure", "stay"]).value.sum().unstack()
@@ -100,9 +93,7 @@ ui.readout([
 ], source=f"長野県「観光入込客統計」（{iy}年）")
 
 # ---- 4. 季節ごと ----
-ui.block("📅 季節ごとの内訳（3か月ごと）",
-         f"{iy}年の1〜3月・4〜6月・7〜9月・10〜12月それぞれに、誰がどれだけ来たか",
-         "季節ごとに、どのお客さまに向けた取り組みが効きそうかを考えるとき")
+ui.block("📅 季節ごとの内訳（3か月ごと）", "3か月ごとの来訪者の内訳", "季節ごとの狙いを決めたいとき")
 q = d[(d.year == iy) & (d.period != "年計") & (d.measure == "visitors")].groupby(["period", "who"]).value.sum().unstack()
 QL = {"Q1": "1〜3月", "Q2": "4〜6月", "Q3": "7〜9月", "Q4": "10〜12月"}
 fig = go.Figure()
@@ -122,9 +113,7 @@ ui.readout([
 ], source=f"長野県「観光入込客統計」（{iy}年）")
 
 # ---- 5. 観光とビジネス ----
-ui.block("💼 観光で来た人と、仕事で来た人",
-         "国内から訪れた人のうち、観光目的とビジネス目的の割合（人数・使ったお金）",
-         "出張・会議（MICE）の誘致の大きさや、平日の需要を考えるとき")
+ui.block("💼 観光で来た人と、仕事で来た人", "ビジネス目的の割合の推移", "出張・会議の需要を知りたいとき")
 dom = year[(year.purpose != "訪日外国人")].groupby(["year", "measure", "purpose"]).value.sum().unstack()
 biz = (dom["ビジネス目的"] / dom.sum(axis=1)).unstack()
 bv = cur[(cur.measure == "visitors") & (cur.purpose != "訪日外国人")].groupby(["purpose", "stay"]).value.sum().unstack()
@@ -144,9 +133,7 @@ ui.readout([
 ], source="長野県「観光入込客統計」。2010〜2015年のビジネス目的は参考値")
 
 # ---- 6. 宿泊者の県内・県外（月ごと） ----
-ui.block("🏠 泊まった人のうち、県外から来た人の割合（月ごと）",
-         "ホテル・旅館に泊まった人（延べ）のうち、県外に住む人の割合が、月によってどう違うか",
-         "県民向けの割引や、県外向けの宣伝をいつ打つかを考えるとき")
+ui.block("🏠 泊まった人のうち、県外から来た人の割合（月ごと）", "宿泊者のうち県外の人の割合（月別）", "県内向け・県外向けの時期を決めるとき")
 res = data.shukuhaku_residence()
 res["share"] = res.kengai / res.total
 ry = int(res.ym.dt.year.max())

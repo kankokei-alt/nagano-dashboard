@@ -5,8 +5,7 @@ import streamlit as st
 from lib import charts, data, maps, ui
 from lib.charts import man, updown
 
-ui.setup("県内のどこへ？", "長野県内のどの市町村・観光地・エリアに人が訪れているかを見るページです。"
-         "ひとつの市町村や広域を詳しく見るときは、上の「市町村」「広域連携」から進めます。")
+ui.setup("県内のどこへ？", "市町村・観光地・エリアごとの人の集まり方。")
 
 sp = data.riyousha_spots()
 ry = int(sp.year.max())
@@ -22,9 +21,7 @@ ui.insight(
 )
 
 # ---- 1. 地図 ----
-ui.block("🗾 市町村ごとの観光地の利用者数（地図）",
-         f"{ry}年に、それぞれの市町村の観光地を訪れた人の延べ人数。色が濃いほど多い",
-         "県内で人が集まっている場所と、まだ少ない場所をひと目でつかみたいとき")
+ui.block("🗾 市町村ごとの観光地の利用者数（地図）", "市町村別の観光地の延べ利用者数", "人が集まる場所をひと目で見たいとき")
 st.plotly_chart(maps.municipality_map(g, outlines=data.kouiki(), values=by_muni.to_dict(),
                                       value_label=f"{ry}年の延べ利用者数", fmt=man), use_container_width=True)
 k = cur.merge(muni[["kouiki"]], left_on="municipality_code", right_index=True)
@@ -35,9 +32,7 @@ ui.readout([
 ], source=f"長野県「観光地利用者統計調査」（{ry}年）。{maps.ATTRIBUTION}")
 
 # ---- 2. 観光地ランキング ----
-ui.block("🏆 人が多い観光地 トップ15",
-         f"{ry}年に延べ利用者数が多かった観光地15か所と、前年からの増減",
-         "県を代表する観光地の顔ぶれと、勢いのある観光地を知りたいとき")
+ui.block("🏆 人が多い観光地 トップ15", "延べ利用者数の上位15か所と前年比", "勢いのある観光地を知りたいとき")
 t = cur.set_index("spot")
 t = t.assign(ly=t.index.map(prev.set_index("spot").total.groupby(level=0).sum()))
 top = t.nlargest(15, "total").iloc[::-1]
@@ -60,9 +55,7 @@ ui.readout([
 ], source=f"長野県「観光地利用者統計調査」（{ry}年）。（ ）内は前年比")
 
 # ---- 3. 10広域の回復 ----
-ui.block("📈 10広域ごとの、コロナ前からの戻り具合",
-         f"10広域それぞれの観光地の延べ利用者数を、2019年を100としたときの{ry}年の値",
-         "県内で回復が進んでいる地域・遅れている地域を比べたいとき")
+ui.block("📈 10広域ごとの、コロナ前からの戻り具合", "広域別の利用者数（2019年＝100）", "回復が遅れている地域を知りたいとき")
 k19 = y19.merge(muni[["kouiki"]], left_on="municipality_code", right_index=True).groupby("kouiki").total.sum()
 idx = (kk / k19 * 100).sort_values()
 allidx = cur.total.sum() / y19.total.sum() * 100
@@ -85,9 +78,7 @@ ui.readout([
 ], source="長野県「観光地利用者統計調査」")
 
 # ---- 4. 県内5エリアの宿泊 ----
-ui.block("🛏️ 県内5エリアの宿泊者数",
-         "観光庁の区分による県内5エリアごとの、最新年の延べ宿泊者数と前年からの増減",
-         "日帰りの観光地の数字だけでなく、どのエリアに泊まっているかを確かめたいとき")
+ui.block("🛏️ 県内5エリアの宿泊者数", "県内5エリアの延べ宿泊者数と前年比", "どこに泊まっているか知りたいとき")
 ar = data.shukuhaku_area()
 ar["area"] = ar.area.str.replace("長野県", "")
 cnt = ar.groupby(ar.ym.dt.year).ym.nunique()
@@ -114,9 +105,7 @@ with st.expander("5エリアに入る市町村"):
     st.dataframe(data.shukuhaku_area_map(), hide_index=True, use_container_width=True)
 
 # ---- 5. 観光地の種類 ----
-ui.block("⛰️ 観光地の種類ごとの利用者",
-         "山岳・高原・温泉・名所旧跡など、観光地の種類ごとの延べ利用者数と、2019年からの増減",
-         "どんなタイプの観光地に人が集まっているか、伸びているかを知りたいとき")
+ui.block("⛰️ 観光地の種類ごとの利用者", "観光地の種類別の利用者と2019年比", "伸びている観光地のタイプを知りたいとき")
 c = pd.DataFrame({"2019年": y19.groupby("category").total.sum(), f"{ry}年": cur.groupby("category").total.sum()})
 fig = go.Figure()
 for col, color in [("2019年", charts.CONTEXT), (f"{ry}年", charts.MAIN)]:

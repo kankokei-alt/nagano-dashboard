@@ -6,8 +6,7 @@ from plotly.subplots import make_subplots
 from lib import charts, data, ui
 from lib.charts import man, updown
 
-ui.setup("海外からのお客さま", "長野県に泊まった外国人が、いつ・どの国や地域から来て・県内のどこに泊まっているかを見るページです。"
-         "全国の訪日客の動きから、この先の見通しも読みます。")
+ui.setup("海外からのお客さま", "どの国・地域から、いつ、県内のどこに。全国の動きから先行きも。")
 
 s = data.shukuhaku()
 last = s.index.max()
@@ -37,9 +36,7 @@ ui.insight(
 )
 
 # ---- 1. 月ごとの外国人宿泊 ----
-ui.block("📊 外国人の宿泊者数（月ごと）",
-         "長野県に泊まった外国人の延べ人数を、今年・前年・コロナ前（2019年）で月ごとに比べたもの",
-         "インバウンドがコロナ前より増えているか、どの月に多いかを確かめたいとき")
+ui.block("📊 外国人の宿泊者数（月ごと）", "外国人延べ宿泊者数（今年・前年・2019年）", "インバウンドの勢いを確かめたいとき")
 fig = go.Figure()
 for y, label, color, dash in [(2019, "2019年（コロナ前）", charts.CONTEXT, "dot"), (last.year - 1, f"{last.year - 1}年", charts.CONTEXT, "solid"),
                               (last.year, f"{last.year}年", charts.MAIN, "solid")]:
@@ -63,9 +60,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」" + (f"（{last.year}年は速報値）" if s.loc[last].status == "速報" else ""))
 
 # ---- 2. 国・地域別 ----
-ui.block("🌏 どの国・地域から来ているか",
-         f"{ny}年に長野県に泊まった外国人を、国・地域ごとに分けた割合と、コロナ前（2019年）からの伸び",
-         "どの国・地域に向けて宣伝や受け入れの準備をするかを考えるとき")
+ui.block("🌏 どの国・地域から来ているか", "国・地域別の割合と2019年比", "どの市場に向けて動くか決めるとき")
 top = named.head(10)
 bars = pd.concat([top, pd.Series({"そのほか": by.sum() - top.sum()})]).iloc[::-1]
 chg = bars / base.reindex(bars.index) - 1
@@ -88,9 +83,7 @@ ui.readout([
 ], source=f"観光庁「宿泊旅行統計調査」（{ny}年確定値, 参考第1表）。国籍別は従業者10人以上の施設の集計")
 
 # ---- 3. 国・地域×月 ----
-ui.block("🗓️ 国・地域ごとの「来る季節」",
-         f"{ny}年に、それぞれの国・地域のお客さまが何月に多く来ているか（各国・地域の1年を100%としたときの月ごとの割合）",
-         "国・地域ごとに、宣伝やおもてなしの準備をいつ始めるかを決めたいとき")
+ui.block("🗓️ 国・地域ごとの「来る季節」", "国・地域ごとの月別の割合", "市場ごとの準備時期を決めるとき")
 hm = nat[(nat.ym.dt.year == ny) & nat.country.isin(top.index)].pivot_table(index="country", columns=nat.ym.dt.month, values="value")
 hm = hm.reindex(top.index)
 hm = hm.div(hm.sum(axis=1), axis=0)
@@ -114,9 +107,7 @@ ui.readout([
 ], source=f"観光庁「宿泊旅行統計調査」（{ny}年確定値）")
 
 # ---- 4. 主な国・地域の推移 ----
-ui.block("📈 主な国・地域の移り変わり（年ごと）",
-         "上位6つの国・地域について、長野県に泊まった人数の年ごとの動き",
-         "伸びている市場・伸び悩んでいる市場を見極めたいとき")
+ui.block("📈 主な国・地域の移り変わり（年ごと）", "上位6か国・地域の年ごとの推移", "伸びている市場を見極めたいとき")
 top6 = named.head(6).index
 yr = nat[nat.country.isin(top6)].groupby([nat.ym.dt.year, "country"]).value.sum().unstack()
 fig = make_subplots(rows=2, cols=3, subplot_titles=list(top6), shared_xaxes=True, vertical_spacing=0.14)
@@ -136,9 +127,7 @@ ui.readout([
 ], source="観光庁「宿泊旅行統計調査」（年の確定値）")
 
 # ---- 5. 県内のどこに泊まっているか ----
-ui.block("📍 県内のどのエリアに泊まっているか",
-         "県内5エリア（観光庁の区分）ごとの外国人延べ宿泊者数と、そのエリアの宿泊者に占める外国人の割合",
-         "インバウンドの受け入れが進んでいるエリア・これからのエリアを知りたいとき")
+ui.block("📍 県内のどのエリアに泊まっているか", "5エリア別の外国人宿泊と、その割合", "受け入れが進む地域を知りたいとき")
 ar = data.shukuhaku_area()
 ay = int(ar.ym.dt.year.max())
 a = ar[ar.ym.dt.year == ay].groupby("area")[["guests", "foreign"]].sum()
@@ -172,10 +161,7 @@ with st.expander("5エリアに入る市町村"):
     st.dataframe(amap, hide_index=True, use_container_width=True)
 
 # ---- 6. 全国の訪日客（先行指標） ----
-ui.block("🛫 全国の訪日客の動き（先行指標）",
-         "日本全体を訪れた外国人の前年同月比（JNTO）を、長野県の外国人宿泊の前年同月比と並べたもの。"
-         "長野のお客さまの国・地域の構成に合わせて計算した全国の伸びも示す",
-         "宿泊旅行統計が出る前に、長野県のインバウンドがこの先どうなりそうかの目安をつけたいとき")
+ui.block("🛫 全国の訪日客の動き（先行指標）", "全国の訪日客と県の外国人宿泊の前年比", "先行きを早めにつかみたいとき")
 ng = s.foreign / s.foreign.shift(12, freq="MS").reindex(s.index)
 ev = data.events()
 covid = ev[ev.kind == "covid"]
