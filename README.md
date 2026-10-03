@@ -25,6 +25,9 @@ pip install -r requirements.txt
 # データの準備（取得済みのものは data/processed/ に入っています）
 python pipelines/fetch_boundaries.py   # 行政区域ポリゴン（国土数値情報 N03）
 python pipelines/build_calendar.py     # 祝日・連休カレンダー
+python pipelines/shukuhaku.py          # 宿泊旅行統計（観光庁の推移表。毎月更新）
+python pipelines/nagano_pref.py irikomi    # 長野県 観光入込客統計（年1回）
+python pipelines/nagano_pref.py riyousha   # 長野県 観光地利用者統計調査（年1回）
 
 streamlit run app/main.py
 ```
@@ -51,15 +54,19 @@ models/      稼働率予測モデル（これから）
 
 一覧は `config/datasets.csv`（アプリの「データについて」ページにも表示）を参照してください。
 
-開発用のクラウド環境は、ネットワーク制限で官公庁サイトに接続できません。取り込みを進めるには、環境のネットワーク設定で次のドメインを許可してください。
+### 取り込みについてのメモ
 
-```
-api.e-stat.go.jp, www.e-stat.go.jp, www.mlit.go.jp, nlftp.mlit.go.jp,
-www.pref.nagano.lg.jp, www.jnto.go.jp, statistics.jnto.go.jp,
-www.data.jma.go.jp, www8.cao.go.jp, www.nihon-kankou.or.jp
-```
+- **宿泊旅行統計調査**: e-Stat の API には 2016年分の表しかない（2026年10月時点）ため、観光庁のページの「推移表」(Excel) を直接読んでいます。
+  2026年1月分から調査の層化基準が「従業者数」→「客室数」に変わったので、2026年の前年比には見直しの影響が含まれることがあります（画面にも注記）。
+- **観光入込客統計・観光地利用者統計調査**: 長野県は PDF でのみ公表しているため、`pdfplumber` で表を読み取っています。
+  読み取った合計値が、PDF に書かれた県全体の数字（例: 令和7年 延利用者数 8,792万人・観光地消費額 3,644億円、観光消費額 1兆865億9,700万円）と一致することを確認しています。
+  入込客統計は 2017・2018年と 2015年以前の PDF の様式が違って読めないため、いまは 2016年と 2019〜2025年を取り込んでいます。
+  利用者統計の PDF には「調査対象 285か所」とありますが、明細から読めるのは 284か所です（合計値は一致）。
 
 ## 出典
 
 - 行政区域: 国土数値情報（行政区域データ N03, 2020年1月1日時点）国土交通省 … [niiyz/JapanCityGeoJson](https://github.com/niiyz/JapanCityGeoJson) が GeoJSON に変換したものを取得して加工
 - 祝日: 内閣府「国民の祝日」（`jpholiday` パッケージ経由）
+- 宿泊: 観光庁「宿泊旅行統計調査」（推移表）
+- 観光入込客数・観光消費額: 長野県「観光入込客統計」（観光庁「観光入込客統計に関する共通基準」に基づく）
+- 観光地別の利用者数: 長野県「観光地利用者統計調査」

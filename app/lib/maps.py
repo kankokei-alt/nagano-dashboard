@@ -7,12 +7,14 @@
 import math
 
 import geopandas as gpd
+import numpy as np
 import plotly.graph_objects as go
 
 NEUTRAL = "#d9d8d3"
 HIGHLIGHT = "#2a78d6"
 LINE = "#ffffff"
 OUTLINE = "#52514e"
+SEQ = ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"]  # 青の濃淡（少→多）
 ATTRIBUTION = "境界: 国土数値情報（行政区域データ, 国土交通省）を加工"
 
 
@@ -28,28 +30,57 @@ def _rings(geom, exterior_only: bool = False):
     return lons, lats
 
 
+def _bins(vals: list[float], k: int = 5) -> list[float]:
+    """件数がほぼ同じになる区切り（分位点）。きりのよい数に丸める。"""
+    q = np.quantile(vals, np.linspace(0, 1, k + 1))
+    def nice(x):
+        if x <= 0:
+            return 0
+        e = 10 ** max(int(math.log10(x)) - 1, 0)
+        return round(x / e) * e
+    edges = sorted({nice(x) for x in q[1:-1]})
+    return [min(vals), *edges, max(vals)]
+
+
 def municipality_map(
     g: gpd.GeoDataFrame,
     highlight: set[str] | None = None,
     outlines: gpd.GeoDataFrame | None = None,
     focus: gpd.GeoDataFrame | None = None,
     height: int = 560,
+    values: dict[str, float] | None = None,
+    value_label: str = "",
+    fmt=lambda v: f"{v:,.0f}",
 ) -> go.Figure:
-    """市町村を塗り分ける地図。highlight に入れた市町村コードだけ色を付ける。"""
+    """市町村を塗り分ける地図。
+
+    highlight に入れた市町村コードだけ色を付ける。values（市町村コード→数値）を渡すと、
+    数値の大きさで青の濃淡に塗り分ける（データのない市町村は灰色のまま）。
+    """
     highlight = highlight or set()
+    bins = _bins(list(values.values())) if values else []
     fig = go.Figure()
     for r in g.itertuples():
         lons, lats = _rings(r.geometry, exterior_only=True)
+        text = f"<b>{r.name}</b><br>{r.kouiki}広域・{r.chiiki}"
+        if values is not None:
+            v = values.get(r.code)
+            fill = NEUTRAL if v is None else SEQ[sum(v >= b for b in bins[1:-1])]
+            text += f"<br>{value_label} {fmt(v) if v is not None else '調査対象の観光地なし'}"
+        else:
+            fill = HIGHLIGHT if r.code in highlight else NEUTRAL
+            text += f"<br>面積 {r.area_km2:,.1f} km²"
         fig.add_trace(
             go.Scatter(
                 x=lons, y=lats, mode="lines", fill="toself", hoveron="fills",
-                fillcolor=HIGHLIGHT if r.code in highlight else NEUTRAL,
-                line={"color": LINE, "width": 0.8},
-                name=r.name, showlegend=False,
-                text=f"<b>{r.name}</b><br>{r.kouiki}広域・{r.chiiki}<br>面積 {r.area_km2:,.1f} km²",
-                hoverinfo="text",
+                fillcolor=fill, line={"color": LINE, "width": 0.8},
+                name=r.name, showlegend=False, text=text, hoverinfo="text",
             )
         )
+    for i in range(len(bins) - 1):  # 凡例（色の区切り）
+        label = f"{fmt(bins[i])}〜" if i == len(bins) - 2 else f"{fmt(bins[i])}〜{fmt(bins[i + 1])}"
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", name=label,
+                                 marker={"symbol": "square", "size": 14, "color": SEQ[i]}))
     if outlines is not None:
         lons, lats = [], []
         for geom in outlines.geometry:
@@ -69,5 +100,6 @@ def municipality_map(
         margin={"l": 0, "r": 0, "t": 0, "b": 0}, height=height,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         dragmode="pan", hoverlabel={"bgcolor": "white"},
+        legend={"orientation": "h", "yanchor": "top", "y": 0.0, "x": 0, "bgcolor": "rgba(0,0,0,0)"},
     )
     return fig

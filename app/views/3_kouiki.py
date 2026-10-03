@@ -1,6 +1,8 @@
+import plotly.graph_objects as go
 import streamlit as st
 
-from lib import data, maps, ui
+from lib import charts, data, maps, ui
+from lib.charts import man, updown
 
 ui.setup("広域で連携する", "複数の市町村をまとめて、ひとつの観光圏として見るページです。")
 
@@ -19,23 +21,70 @@ if selected.empty:
     st.warning("市町村を選んでください。")
     st.stop()
 
-ui.insight(
-    f"選んだ {len(selected)} 市町村の合計面積は {selected.area_km2.sum():,.0f} km²"
-    f"（県の {selected.area_km2.sum() / g.area_km2.sum():.0%}）です。"
-    "統計を取り込むと、圏域内で「来訪が集中している所」と「周遊の余地がある所」をここに示します。"
-)
+sp = data.riyousha_spots()
+ry = int(sp.year.max())
+area = sp[sp.municipality_code.isin(selected.code)]
+now = area[area.year == ry]
+by_muni = now.groupby("municipality").total.sum().sort_values(ascending=False)
+missing = sorted(set(selected.name) - set(by_muni.index))
+
+if now.empty:
+    ui.insight(f"選んだ市町村には、県の観光地利用者統計調査（{ry}年）の対象の観光地がありません。")
+else:
+    tot, tot_ly = now.total.sum(), area[area.year == ry - 1].total.sum()
+    monthly = now[charts.MONTHS].sum()
+    mshare = monthly / monthly.sum()
+    peak, low = int(mshare.idxmax()[1:]), int(mshare.idxmin()[1:])
+    text = (f"選んだ圏域の観光地には、{ry}年に延べ <b>{man(tot)}</b> が訪れました"
+            + (f"（前年より{updown(tot / tot_ly - 1)}）。" if tot_ly > 0 else "。"))
+    if len(by_muni) >= 2 and by_muni.iloc[0] / tot >= 0.5:
+        text += f"そのうち <b>{by_muni.index[0]}</b> が {by_muni.iloc[0] / tot:.0%} を占め、来訪が集中しています。"
+    elif len(by_muni) >= 3:
+        text += (f"<b>{by_muni.index[0]}</b>と<b>{by_muni.index[1]}</b>の2つで "
+                 f"{by_muni.iloc[:2].sum() / tot:.0%} を占めます。")
+    text += (f"<br>圏域全体のピークは <b>{peak}月</b>（年間の {mshare.max():.0%}）、"
+             f"いちばん少ないのは <b>{low}月</b>（{mshare.min():.0%}）です。"
+             "ピークの重ならない市町村どうしの周遊や、少ない月の企画に連携の余地があります。")
+    ui.insight(text)
 st.plotly_chart(
     maps.municipality_map(g, highlight=set(selected.code), outlines=k, focus=selected, height=520),
     use_container_width=True,
 )
 st.caption(maps.ATTRIBUTION)
 
-c1, c2 = st.columns(2)
-with c1:
-    st.subheader("圏域内のシェア")
-    ui.pending("市町村ごとの利用者数の割合", ["riyousha"])
-with c2:
-    st.subheader("季節のかぶり・すき間")
-    ui.pending("市町村ごとの月別ピークの比較", ["riyousha", "digital"])
+if not now.empty:
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("圏域内のシェア")
+        b = by_muni.iloc[::-1]
+        fig = go.Figure(go.Bar(
+            y=b.index, x=b.values / tot, orientation="h", marker_color=charts.MAIN,
+            text=[f"{v / tot:.0%}（{man(v)}）" for v in b.values], textposition="outside", cliponaxis=False,
+            hovertemplate="<b>%{y}</b><br>圏域の %{x:.1%}<extra></extra>",
+        ))
+        charts.layout(fig, height=max(240, 38 * len(b) + 60))
+        fig.update_xaxes(tickformat=".0%", range=[0, b.max() / tot * 1.45], showgrid=True,
+                         gridcolor="rgba(128,128,128,.18)", title=f"{ry}年の延べ利用者数に占める割合")
+        fig.update_yaxes(showgrid=False)
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        st.subheader("季節のかぶり・すき間")
+        hm = now.groupby("municipality")[charts.MONTHS].sum()
+        hm = hm.div(hm.sum(axis=1), axis=0).reindex(by_muni.index)
+        fig = go.Figure(go.Heatmap(
+            z=hm.values, x=[f"{m}月" for m in range(1, 13)], y=hm.index,
+            colorscale=[[i / (len(charts.SEQ) - 1), c] for i, c in enumerate(charts.SEQ)],
+            xgap=2, ygap=2, colorbar={"title": "年間に<br>占める割合", "tickformat": ".0%"},
+            hovertemplate="<b>%{y}</b> %{x}<br>年間の %{z:.1%}<extra></extra>",
+        ))
+        charts.layout(fig, height=max(240, 38 * len(hm) + 60))
+        fig.update_yaxes(autorange="reversed", showgrid=False)
+        st.plotly_chart(fig, use_container_width=True)
+        peaks = hm.idxmax(axis=1).str[1:].astype(int)
+        same = (peaks == peaks.mode().iloc[0]).sum()
+        st.markdown(f"色が濃いほど、その月に来訪が集中しています。{len(hm)}市町村のうち **{same}** が "
+                    f"**{peaks.mode().iloc[0]}月** にピークを迎えます。")
+    st.caption(f"出典: 長野県「観光地利用者統計調査」（{ry}年）。延べ利用者数は日帰り客と宿泊客の延べ人数の合計です。"
+               + (f" {'・'.join(missing)}は調査対象の観光地がないため含みません。" if missing else ""))
 
 ui.sources(["boundaries", "riyousha", "digital"])
