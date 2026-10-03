@@ -8,7 +8,7 @@ inbound_shohi,インバウンド消費動向調査,観光庁,都道府県×四�
 hakusho,観光白書,観光庁,年次,全国の動向・解説,未取得,https://www.mlit.go.jp/kankocho/tokei_hakusyo/kankohakusyo.html
 riyousha,観光地利用者統計調査,長野県（統計ステーションながの Excel・観光課 PDF）,観光地×月（2011年〜）、観光地×年（2010年〜）,エリア別の利用者数・観光消費額,取得済み（観光地別の明細 2011〜2025年（2016年〜は Excel）、年次推移 2010〜2025年）,https://tokei.pref.nagano.lg.jp/statist_list/8998.html
 irikomi,観光入込客統計（共通基準）,長野県,県×四半期・年,日帰り/宿泊・県内/県外の入込客数と消費額単価,取得済み（2010〜2025年。2010〜15年のビジネス目的、2017・18年の入込客数は参考値）,https://tokei.pref.nagano.lg.jp/statist_list/8999.html
-jnto,訪日外客統計,JNTO,国籍×月,インバウンドの先行指標,未取得,https://www.jnto.go.jp/statistics/data/visitors-statistics/
+jnto,訪日外客統計,JNTO（国籍/月別 Excel）,国籍×月,訪日客の先行指標（俯瞰ページ）・稼働率予測の手がかり,取得済み（2003年1月〜2026年8月。2026年は暫定値、7・8月は推計値。各年の合計を年別推移PDFと照合）,https://www.jnto.go.jp/statistics/data/visitors-statistics/
 digital,デジタル観光統計オープンデータ,日本観光振興協会,都道府県・市区町村×月,人流ベースの来訪者数,未取得,https://www.nihon-kankou.or.jp/
-weather,過去の気象データ,気象庁,地点×日,気温・降雪・積雪（スキー需要）,未取得,https://www.data.jma.go.jp/stats/etrn/
+weather,過去の気象データ,気象庁,地点×月（長野・松本・軽井沢・白馬・野沢温泉・菅平）,"気温・降雪量・最深積雪（スキー需要, 稼働率予測の手がかり）",取得済み（2009年1月〜2026年9月。年ごとの値と照合し、資料不足の冬9件は除外）,https://www.data.jma.go.jp/stats/etrn/
 kokusei_area,国勢調査 小地域（町丁・字）境界,総務省（e-Stat）,町丁・字ポリゴン,市町村内エリア（例: 長野市の松代・戸隠）,未取得,https://www.e-stat.go.jp/gis/statmap-search?type=2

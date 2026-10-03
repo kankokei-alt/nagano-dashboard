@@ -88,3 +88,48 @@ def shukuhaku_area() -> pd.DataFrame:
 @st.cache_data
 def shukuhaku_area_map() -> pd.DataFrame:
     return pd.read_csv(CONFIG / "shukuhaku_areas.csv", dtype={"municipality_code": str})
+
+
+@st.cache_data
+def jnto() -> pd.DataFrame:
+    """JNTO 訪日外客数（国籍×月, 2003年〜）。kind: total/region/country/sub、status: 確定/暫定/推計。"""
+    return pd.read_parquet(PROCESSED / "jnto_monthly.parquet")
+
+
+@st.cache_data
+def weather() -> pd.DataFrame:
+    """気象庁 主要地点の月別の平均気温・降雪量・最深積雪。"""
+    return pd.read_parquet(PROCESSED / "weather_monthly.parquet")
+
+
+@st.cache_data
+def checks(name: str) -> pd.DataFrame:
+    """取り込み時の公表値との照合結果（data/processed/checks/）。"""
+    return pd.read_csv(PROCESSED / "checks" / f"{name}.csv")
+
+
+MODELS = ROOT / "models"
+
+
+@st.cache_data
+def forecast() -> pd.DataFrame:
+    return pd.read_parquet(MODELS / "forecast.parquet")
+
+
+@st.cache_data
+def backtest() -> pd.DataFrame:
+    return pd.read_parquet(MODELS / "backtest.parquet")
+
+
+@st.cache_data
+def forecast_meta() -> dict:
+    import json
+    return json.loads((MODELS / "forecast_meta.json").read_text(encoding="utf-8"))
+
+
+@st.cache_data
+def shukuhaku_occupancy(pref_code: str = "20") -> pd.DataFrame:
+    """客室稼働率（%）を施設タイプ別の横持ちで返す。"""
+    d = pd.read_parquet(PROCESSED / "shukuhaku_monthly.parquet")
+    d = d[(d.pref_code == pref_code) & (d.metric == "occupancy")]
+    return d.pivot_table(index="ym", columns="facility", values="value").sort_index()

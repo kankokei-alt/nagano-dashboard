@@ -18,3 +18,13 @@ st.dataframe(
 st.subheader("主なイベント・制度（予測の手がかり）")
 ev = data.events()
 st.dataframe(ev, hide_index=True, use_container_width=True)
+
+st.subheader("公表値との照合")
+st.markdown("取り込んだ数字は、公表されている年の合計などと照合してから使っています。合わなかった年は使わずに、理由を残しています。")
+for name, label in [("jnto", "訪日外客統計（JNTO）"), ("weather", "過去の気象データ（気象庁）")]:
+    c = data.checks(name)
+    bad = c[~c.adopted]
+    st.markdown(f"**{label}** … {len(c)}件を照合し、{len(c) - len(bad)}件が一致" + ("。" if bad.empty else f"、{len(bad)}件は使っていません。"))
+    if not bad.empty:
+        cols = {"station": "地点", "year": "年", "item": "項目", "reason": "使わない理由"}
+        st.dataframe(bad[[k for k in cols if k in bad.columns]].rename(columns=cols), hide_index=True, use_container_width=True)

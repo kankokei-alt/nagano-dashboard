@@ -24,6 +24,31 @@ iy = int(ann.index.max())
 spend, spend_ly = ann.loc[iy, "spend"], ann.loc[iy - 1, "spend"]
 visitors, visitors_ly = ann.loc[iy, "visitors"], ann.loc[iy - 1, "visitors"]
 
+
+# ---- 全国の訪日客（JNTO, 先行指標） ----
+jn = data.jnto()
+J = jn[jn.kind.isin(["total", "country", "sub"])].pivot_table(index="ym", columns="country", values="value")
+j_status = jn[jn.kind == "total"].set_index("ym").status
+jl = J.index.max()
+j_yoy = J / J.shift(12, freq="MS").reindex(J.index)
+nat_all = data.shukuhaku_nationality()
+nat_y = int(nat_all.ym.dt.year.max())
+w = (nat_all[nat_all.ym.dt.year == nat_y].groupby("country").value.sum()
+     .drop("その他", errors="ignore").rename({"オーストラリア": "豪州"}))
+w = w[w.index.isin(J.columns)] / w[w.index.isin(J.columns)].sum()
+wg = (j_yoy[w.index] * w).sum(axis=1) / (j_yoy[w.index].notna() * w).sum(axis=1)  # 長野の客層で重みづけした全国の伸び
+wg = wg[j_yoy["総数"].notna()]
+ng = s.foreign / s.foreign.shift(12, freq="MS").reindex(s.index)
+ev = data.events()
+covid = ev[ev.kind == "covid"]
+cv0, cv1 = covid.start.min().to_period("M").to_timestamp(), covid.end.max().to_period("M").to_timestamp()
+both = pd.DataFrame({"wg": wg, "ng": ng}).dropna()
+normal = both[[not (cv0 <= t <= cv1 or cv0 <= t - pd.DateOffset(years=1) <= cv1) for t in both.index]]
+agree = ((normal.wg > 1) == (normal.ng > 1)).mean()
+lead = (jl.year - last.year) * 12 + jl.month - last.month
+jl_label = f"{jl.year}年{jl.month}月"
+j_note = {"推計": "推計値", "暫定": "暫定値", "確定": "確定値"}[j_status[jl]]
+
 ui.insight(
     f"{ym}の延べ宿泊者数は <b>{man(cur.guests, '人泊')}</b> で、前年同月より{updown(cur.guests / ly.guests - 1)}、"
     f"コロナ前（2019年{last.month}月）と比べると{updown(cur.guests / cv.guests - 1)}でした。"
@@ -32,6 +57,12 @@ ui.insight(
     + (f"。県を訪れた人の数（実人数）は{updown(visitors / visitors_ly - 1)}なので、1人あたりの消費が伸びています。"
        if spend / spend_ly > visitors / visitors_ly + 0.02 else
        f"、県を訪れた人の数（実人数）は{updown(visitors / visitors_ly - 1)}でした。")
+    + f"<br>一足早く分かる全国の訪日客（{jl_label}, {j_note}）は前年同月より"
+      f"{updown(J.loc[jl, '総数'] / J.loc[jl - pd.DateOffset(years=1), '総数'] - 1)}。"
+      f"長野県に泊まる外国人の国・地域の構成に合わせて見ると{updown(wg[jl] - 1)}"
+    + ("で、県内の外国人宿泊も前年を下回る可能性があります。" if wg[jl] < 0.995 else
+       "で、県内の外国人宿泊も前年を上回る可能性があります。" if wg[jl] > 1.005 else
+       "で、県内の外国人宿泊も前年並みになりそうです。")
 )
 
 cols = st.columns(4)
@@ -174,6 +205,60 @@ with c2:
     st.caption(f"出典: 観光庁「宿泊旅行統計調査」（{ny}年確定値, 参考第1表）。"
                "国籍別は従業者10人以上の施設の集計なので、上の外国人宿泊者数（全施設）より少し小さくなります。")
 
+
+# ---- 全国の訪日客の動き（先行指標） ----
+st.subheader("全国の訪日客の動き（先行指標）")
+st.markdown(
+    f"全国の訪日客数（JNTO）は、宿泊旅行統計より **{lead}か月早く** 公表されます。"
+    f"長野県に泊まる外国人の国・地域の構成（{nat_y}年）に合わせて全国の伸びを計算すると、"
+    f"コロナ期間を除く過去の月の **{agree:.0%}** で、県内の外国人宿泊と増減の向きがそろっていました。"
+)
+c1, c2 = st.columns([3, 2])
+with c1:
+    since = jl - pd.DateOffset(months=23)
+    series = [("全国の訪日客（総数）", j_yoy["総数"], charts.CONTEXT, "dot"),
+              ("全国の訪日客（長野の客層に合わせた伸び）", wg, charts.SECOND, "solid"),
+              ("長野県の外国人延べ宿泊者", ng, charts.MAIN, "solid")]
+    fig = go.Figure()
+    for label, v, color, dash in series:
+        v = (v[v.index >= since].dropna() - 1) * 100
+        est = [j_status.get(t) == "推計" and "宿泊" not in label for t in v.index]
+        fig.add_trace(go.Scatter(
+            x=v.index, y=v.values, name=label, mode="lines+markers",
+            line={"color": color, "width": 3 if "長野県" in label else 2, "dash": dash},
+            marker={"size": 8, "symbol": ["circle-open" if e else "circle" for e in est]},
+            hovertemplate=f"{label}<br>%{{x|%Y年%-m月}} 前年同月比 %{{y:+.0f}}%<extra></extra>",
+        ))
+    fig.add_hline(y=0, line={"color": "rgba(128,128,128,.6)", "width": 1})
+    charts.layout(fig, height=360, hovermode="x unified")
+    fig.update_yaxes(title="前年同月比（%）", ticksuffix="%")
+    fig.update_xaxes(tickformat="%Y年<br>%-m月", dtick="M3")
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption(f"白抜きの点は推計値。{last.year}年の宿泊の数字は速報値で、調査の区分けの見直しの影響を含むことがあります。"
+               "出典: 日本政府観光局（JNTO）「訪日外客統計」、観光庁「宿泊旅行統計調査」")
+with c2:
+    top = w.sort_values(ascending=False).head(6)
+    g3 = J.loc[jl - pd.DateOffset(months=2):jl, top.index].sum() / J.loc[
+        jl - pd.DateOffset(months=14):jl - pd.DateOffset(months=12), top.index].sum() - 1
+    b = g3.iloc[::-1]
+    fig = go.Figure(go.Bar(
+        y=b.index, x=b.values, orientation="h",
+        marker_color=[charts.MAIN if v >= 0 else charts.SECOND for v in b.values],
+        text=[f"{v:+.0%}" for v in b.values], textposition="outside", cliponaxis=False,
+        customdata=[f"{top[k]:.0%}" for k in b.index],
+        hovertemplate="<b>%{y}</b><br>全国の訪日客 前年同期比 %{x:+.1%}<br>長野の外国人宿泊に占める割合 %{customdata}<extra></extra>",
+    ))
+    charts.layout(fig, height=300, title={"text": "長野の主なお客さまの国・地域（全国の直近3か月の伸び）", "font": {"size": 13}})
+    lim = max(abs(b.values).max() * 1.35, 0.1)
+    fig.update_xaxes(tickformat="+.0%", range=[-lim, lim], zeroline=True, zerolinecolor="rgba(128,128,128,.6)")
+    fig.update_yaxes(showgrid=False)
+    st.plotly_chart(fig, use_container_width=True)
+    up, down = g3.idxmax(), g3.idxmin()
+    st.markdown(
+        f"直近3か月（{(jl - pd.DateOffset(months=2)).month}〜{jl.month}月）、長野の主なお客さまのうち **{up}** は全国で"
+        f" {g3[up]:+.0%}" + (f"、**{down}** は {g3[down]:+.0%} でした。" if g3[down] < 0 else "と、どの国・地域も前年を上回っています。")
+    )
+
 # ---- 長い目で見ると ----
 with st.expander("長い目で見ると（2010年代からの宿泊者数と観光消費額）"):
     a = s[s.index.year < last.year].groupby(s.index.year[s.index.year < last.year])[["japanese", "foreign"]].sum()
@@ -211,4 +296,4 @@ with st.expander("長い目で見ると（2010年代からの宿泊者数と観�
     st.caption("出典: 観光庁「宿泊旅行統計調査」、長野県「観光入込客統計」（観光庁 共通基準）。"
                "入込客統計の2010〜2015年はビジネス目的、2017・2018年は入込客数が「参考値」とされています。")
 
-ui.sources(["boundaries", "shukuhaku", "irikomi", "riyousha"])
+ui.sources(["boundaries", "shukuhaku", "irikomi", "riyousha", "jnto"])
