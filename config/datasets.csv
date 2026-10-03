@@ -1,0 +1,14 @@
+id,name,provider,granularity,use,status,url
+boundaries,"行政区域データ（N03, 2020年1月1日時点）",国土交通省 国土数値情報,市町村ポリゴン,地図,取得済み,https://nlftp.mlit.go.jp/ksj/
+holidays,国民の祝日,内閣府,日次,連休カレンダー・予測の説明変数,取得済み,https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html
+events,主要イベント・制度（御開帳・御柱祭・新幹線・旅行支援など）,手作業で整理（config/events.csv）,期間,予測の説明変数・注釈,取得済み（要確認あり）,
+shukuhaku,宿泊旅行統計調査,観光庁（e-Stat）,都道府県×月（一部は市区町村の参考表あり）,延べ宿泊者数・客室稼働率・外国人比率,ネットワーク許可待ち,https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html
+shohi,旅行・観光消費動向調査,観光庁,全国×四半期,日本人の旅行単価・消費額,ネットワーク許可待ち,https://www.mlit.go.jp/kankocho/tokei_hakusyo/shohidoko.html
+inbound_shohi,インバウンド消費動向調査,観光庁,都道府県×四半期/年,訪日客の消費単価,ネットワーク許可待ち,https://www.mlit.go.jp/kankocho/tokei_hakusyo/gaikokujinshohidoko.html
+hakusho,観光白書,観光庁,年次,全国の動向・解説,ネットワーク許可待ち,https://www.mlit.go.jp/kankocho/tokei_hakusyo/kankohakusyo.html
+riyousha,観光地利用者統計調査,長野県,観光地×年（季節別あり）,エリア別の利用者数・観光消費額,ネットワーク許可待ち,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/
+irikomi,観光入込客統計（共通基準）,長野県,県×四半期・年,日帰り/宿泊・県内/県外の入込客数と消費額単価,ネットワーク許可待ち,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/irikomi.html
+jnto,訪日外客統計,JNTO,国籍×月,インバウンドの先行指標,ネットワーク許可待ち,https://www.jnto.go.jp/statistics/data/visitors-statistics/
+digital,デジタル観光統計オープンデータ,日本観光振興協会,都道府県・市区町村×月,人流ベースの来訪者数,ネットワーク許可待ち,https://www.nihon-kankou.or.jp/
+weather,過去の気象データ,気象庁,地点×日,気温・降雪・積雪（スキー需要）,ネットワーク許可待ち,https://www.data.jma.go.jp/stats/etrn/
+kokusei_area,国勢調査 小地域（町丁・字）境界,総務省（e-Stat）,町丁・字ポリゴン,市町村内エリア（例: 長野市の松代・戸隠）,ネットワーク許可待ち,https://www.e-stat.go.jp/gis/statmap-search?type=2
