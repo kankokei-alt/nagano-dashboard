@@ -87,4 +87,43 @@ if not now.empty:
     st.caption(f"出典: 長野県「観光地利用者統計調査」（{ry}年）。延べ利用者数は日帰り客と宿泊客の延べ人数の合計です。"
                + (f" {'・'.join(missing)}は調査対象の観光地がないため含みません。" if missing else ""))
 
-ui.sources(["boundaries", "riyousha", "digital"])
+# ---- 宿泊で見ると（観光庁の県内5エリア） ----
+amap = data.shukuhaku_area_map()
+hit = amap[amap.municipality_code.isin(selected.code)].area.value_counts()
+if not hit.empty:
+    st.subheader("宿泊で見ると")
+    area = hit.index[0]
+    if len(hit) > 1:
+        area = st.radio("観光庁の集計エリア（選んだ市町村を含むもの）", list(hit.index), horizontal=True,
+                        format_func=lambda a: amap[amap.area == a].area_full.iloc[0].removeprefix("長野県"))
+    members = amap[amap.area == area]
+    sa = data.shukuhaku_area()
+    sa = sa[sa.area == area]
+    yr = sa.groupby(sa.ym.dt.year)[["guests", "foreign"]].sum()
+    full = yr.index.max()
+    c1, c2 = st.columns([3, 2])
+    with c1:
+        fig = go.Figure()
+        for col, label, color in [("japanese", "日本人", charts.MAIN), ("foreign", "外国人", charts.SECOND)]:
+            v = yr.guests - yr.foreign if col == "japanese" else yr.foreign
+            fig.add_trace(go.Bar(x=yr.index, y=v / 1e4, name=label, marker_color=color,
+                                 marker_line={"color": "white", "width": 1},
+                                 hovertemplate=f"%{{x}}年 {label} %{{y:,.0f}}万人泊<extra></extra>"))
+        charts.layout(fig, height=300, barmode="stack", bargap=0.3, legend_traceorder="normal")
+        fig.update_yaxes(title="延べ宿泊者数（万人泊）")
+        fig.update_xaxes(dtick=1)
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        m = sa[sa.ym.dt.year == full].set_index(sa[sa.ym.dt.year == full].ym.dt.month)
+        st.markdown(
+            f"**{members.area_full.iloc[0].removeprefix('長野県')}** エリア（{len(members)}市町村）の延べ宿泊者数は、"
+            f"{full}年に **{man(yr.guests[full], '人泊')}**"
+            + (f"（前年より{updown(yr.guests[full] / yr.guests[full - 1] - 1)}）" if full - 1 in yr.index else "")
+            + f"。外国人の割合は **{yr.foreign[full] / yr.guests[full]:.0%}** で、"
+            f"いちばん多いのは {m.guests.idxmax()}月、外国人は {m.foreign.idxmax()}月に集中します。"
+        )
+        st.caption("このエリアに含まれる市町村: " + "・".join(members.municipality))
+    st.caption("出典: 観光庁「宿泊旅行統計調査」参考表（広域市町村130区分別, 確定値）。"
+               "観光庁の集計エリアは県の10広域とは範囲が違います。")
+
+ui.sources(["boundaries", "riyousha", "shukuhaku", "digital"])

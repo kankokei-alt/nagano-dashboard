@@ -65,3 +65,26 @@ def riyousha_spots() -> pd.DataFrame:
 @st.cache_data
 def riyousha_history() -> pd.DataFrame:
     return pd.read_parquet(PROCESSED / "riyousha_history.parquet")
+
+
+@st.cache_data
+def shukuhaku_residence() -> pd.DataFrame:
+    """長野県の延べ宿泊者数の県内/県外（月次, 2010年〜）。"""
+    return pd.read_parquet(PROCESSED / "shukuhaku_residence.parquet")
+
+
+@st.cache_data
+def shukuhaku_nationality() -> pd.DataFrame:
+    """長野県の国籍（出身地）別 外国人延べ宿泊者数（月次, 従業者10人以上の施設）。"""
+    return pd.read_parquet(PROCESSED / "shukuhaku_nationality.parquet")
+
+
+@st.cache_data
+def shukuhaku_area() -> pd.DataFrame:
+    """長野県内5エリア（観光庁の広域市町村130区分）別の延べ宿泊者数（月次, 2021年〜）。"""
+    return pd.read_parquet(PROCESSED / "shukuhaku_area.parquet")
+
+
+@st.cache_data
+def shukuhaku_area_map() -> pd.DataFrame:
+    return pd.read_csv(CONFIG / "shukuhaku_areas.csv", dtype={"municipality_code": str})

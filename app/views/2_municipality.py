@@ -20,6 +20,7 @@ if now.empty:
                f"県の観光地利用者統計調査（{ry}年）には、{name}の観光地は入っていません。")
 else:
     tot, tot_ly = now.total.sum(), before.total.sum()
+    pre = mine[mine.year == 2019].total.sum()
     now = now.assign(ly=now.spot.map(before.total))
     now["chg"] = (now.total / now.ly - 1).where(now.ly > 0)  # 新規の観光地は前年比なし
     grow = now[(now.ly > 0) & (now.total >= 10_000)].sort_values("chg")
@@ -27,7 +28,8 @@ else:
     text = (f"{name}の観光地（{len(now)}か所）には、{ry}年に延べ <b>{man(tot)}</b> が訪れ、"
             + (f"前年より{updown(tot / tot_ly - 1)}でした" if tot_ly > 0 else "でした")
             + f"（観光地での消費額 {yen(now.spend.sum())}）。"
-            f"いちばん多いのは <b>{now.sort_values('total').spot.iloc[-1]}</b>、"
+            + (f"コロナ前（2019年）と比べると{updown(tot / pre - 1)}です。" if pre > 0 else "")
+            + f"いちばん多いのは <b>{now.sort_values('total').spot.iloc[-1]}</b>、"
             f"季節のピークは <b>{int(monthly.idxmax()[1:])}月</b> です。")
     if len(grow) >= 2 and grow.chg.iloc[-1] > 0.02:
         text += f"<br>伸びが大きいのは {grow.spot.iloc[-1]}（{grow.chg.iloc[-1]:+.0%}）"
@@ -75,11 +77,14 @@ if not now.empty:
     with c2:
         st.subheader("季節ごとの来訪")
         fig = go.Figure()
-        for y, color, width in [(ry - 1, charts.CONTEXT, 2), (ry, charts.MAIN, 3)]:
+        for y, color, width, dash in [(2019, charts.CONTEXT, 2, "dot"), (ry - 1, charts.CONTEXT, 2, "solid"),
+                                      (ry, charts.MAIN, 3, "solid")]:
+            if not (mine.year == y).any():
+                continue
             m = mine[mine.year == y][charts.MONTHS].sum()
             fig.add_trace(go.Scatter(
-                x=list(range(1, 13)), y=m.values / 1e4, name=f"{y}年", mode="lines+markers",
-                line={"color": color, "width": width}, marker={"size": 7},
+                x=list(range(1, 13)), y=m.values / 1e4, name=f"{y}年" + ("（コロナ前）" if y == 2019 else ""),
+                mode="lines+markers", line={"color": color, "width": width, "dash": dash}, marker={"size": 7},
                 hovertemplate=f"{y}年 %{{x}}月<br>%{{y:,.1f}}万人<extra></extra>",
             ))
         charts.layout(fig, height=360, hovermode="x unified")
@@ -89,7 +94,28 @@ if not now.empty:
         day = now.higaeri.sum() / now.total.sum()
         out = now.kengai.sum() / now.total.sum()
         st.markdown(f"訪れた人の **{out:.0%}** が県外から、**{day:.0%}** が日帰りです。")
-    st.caption(f"出典: 長野県「観光地利用者統計調査」（{ry - 1}・{ry}年）。延べ利用者数は日帰り客と宿泊客の延べ人数の合計です。")
+    st.caption(f"出典: 長野県「観光地利用者統計調査」。延べ利用者数は日帰り客と宿泊客の延べ人数の合計です。")
+
+    hist = data.riyousha_history()
+    hist = hist[hist.municipality_code == row.code]
+    with st.expander(f"長い目で見ると（{hist.year.min()}年からの延べ利用者数）"):
+        yearly = hist.groupby("year").visitors.sum()
+        fig = go.Figure(go.Bar(x=yearly.index, y=yearly.values / 1e4, marker_color=charts.MAIN,
+                               hovertemplate="%{x}年 %{y:,.1f}万人<extra></extra>"))
+        charts.layout(fig, height=300, bargap=0.25)
+        fig.update_yaxes(title="延べ利用者数（万人）")
+        st.plotly_chart(fig, use_container_width=True)
+        top_spots = now.sort_values("total", ascending=False).spot.head(5)
+        trend = hist[hist.spot.isin(top_spots)].pivot_table(index="year", columns="spot", values="visitors")
+        first = trend.apply(lambda c: c.first_valid_index())
+        chg = {sp: trend[sp].iloc[-1] / trend[sp][first[sp]] - 1 for sp in trend.columns if trend[sp][first[sp]] > 0}
+        st.markdown(
+            f"{yearly.index[0]}年の {man(yearly.iloc[0])} に対して、{yearly.index[-1]}年は {man(yearly.iloc[-1])}"
+            f"（{updown(yearly.iloc[-1] / yearly.iloc[0] - 1)}）。"
+            + "上位の観光地では、" + "、".join(f"{sp} {c:+.0%}" for sp, c in sorted(chg.items(), key=lambda x: -x[1]))
+            + f"（{yearly.index[0]}年比、調査開始が遅い観光地はその年から）。"
+        )
+        st.caption("観光地の追加・統合があるため、年による増減には調査対象の変化も含まれます。")
 
     with st.expander("観光地ごとの数字（表）"):
         tbl = now.sort_values("total", ascending=False)[["spot", "category", "total", "chg", "kengai", "shukuhaku", "spend"]]

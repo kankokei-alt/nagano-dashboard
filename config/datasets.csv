@@ -2,12 +2,12 @@ id,name,provider,granularity,use,status,url
 boundaries,"行政区域データ（N03, 2020年1月1日時点）",国土交通省 国土数値情報,市町村ポリゴン,地図,取得済み,https://nlftp.mlit.go.jp/ksj/
 holidays,国民の祝日,内閣府,日次,連休カレンダー・予測の説明変数,取得済み,https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html
 events,主要イベント・制度（御開帳・御柱祭・新幹線・旅行支援など）,手作業で整理（config/events.csv）,期間,予測の説明変数・注釈,取得済み（要確認あり）,
-shukuhaku,宿泊旅行統計調査,観光庁（推移表Excel）,都道府県×月,延べ宿泊者数・客室稼働率・外国人比率,取得済み（2011年1月〜2026年7月。2026年は速報値）,https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html
+shukuhaku,宿泊旅行統計調査,観光庁（推移表Excel）,都道府県×月（国籍別・県内外別あり）、県内5エリア×月,延べ宿泊者数・客室稼働率・外国人比率,取得済み（月次 2011年1月〜2026年7月、県内外別 2010年〜、国籍別 2009年〜、県内5エリア 2021年〜。2026年は速報値）,https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html
 shohi,旅行・観光消費動向調査,観光庁,全国×四半期,日本人の旅行単価・消費額,未取得,https://www.mlit.go.jp/kankocho/tokei_hakusyo/shohidoko.html
 inbound_shohi,インバウンド消費動向調査,観光庁,都道府県×四半期/年,訪日客の消費単価,未取得,https://www.mlit.go.jp/kankocho/tokei_hakusyo/gaikokujinshohidoko.html
 hakusho,観光白書,観光庁,年次,全国の動向・解説,未取得,https://www.mlit.go.jp/kankocho/tokei_hakusyo/kankohakusyo.html
-riyousha,観光地利用者統計調査,長野県,観光地×月（最新2年）、観光地×年（2010年〜）,エリア別の利用者数・観光消費額,取得済み（観光地別の明細 2024・2025年、年次推移 2010〜2025年）,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/riyousya.html
-irikomi,観光入込客統計（共通基準）,長野県,県×四半期・年,日帰り/宿泊・県内/県外の入込客数と消費額単価,取得済み（2016年、2019〜2025年）,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/irikomi.html
+riyousha,観光地利用者統計調査,長野県,観光地×月（2011年〜）、観光地×年（2010年〜）,エリア別の利用者数・観光消費額,取得済み（観光地別の明細 2011〜2025年（2013年含む、2010年なし）、年次推移 2010〜2025年）,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/riyousya.html
+irikomi,観光入込客統計（共通基準）,長野県,県×四半期・年,日帰り/宿泊・県内/県外の入込客数と消費額単価,取得済み（2010〜2025年。2010〜15年のビジネス目的、2017・18年の入込客数は参考値）,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/irikomi.html
 jnto,訪日外客統計,JNTO,国籍×月,インバウンドの先行指標,未取得,https://www.jnto.go.jp/statistics/data/visitors-statistics/
 digital,デジタル観光統計オープンデータ,日本観光振興協会,都道府県・市区町村×月,人流ベースの来訪者数,未取得,https://www.nihon-kankou.or.jp/
 weather,過去の気象データ,気象庁,地点×日,気温・降雪・積雪（スキー需要）,未取得,https://www.data.jma.go.jp/stats/etrn/

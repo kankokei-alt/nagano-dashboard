@@ -89,40 +89,56 @@ IRIKOMI_COLS = [
     ("ビジネス目的", "宿泊", "県外"), ("ビジネス目的", "宿泊", "県内"),
     ("ビジネス目的", "日帰り", "県外"), ("ビジネス目的", "日帰り", "県内"), ("ビジネス目的", "計", "計"),
 ]
-SECTIONS = [("(1)観光入込客数", "visitors", 1000), ("(2)観光消費額単価", "unit_price", 1),
-            ("(3)観光消費額", "spend", 1_000_000)]
+UNITS = {"visitors": 1000, "unit_price": 1, "spend": 1_000_000}
 QUARTERS = {"1~3月": "Q1", "4~6月": "Q2", "7~9月": "Q3", "10~12月": "Q4"}
 
 
+def _section(line: str) -> str | None:
+    """「(1)観光入込客数」「(2)観光消費額単価」などの見出し行 → measure。年によって順番が違う。
+    2017・2018年版は見出しに【参考値】の文字が重なって「観光入込【参客考値数】」と読まれる。"""
+    if not re.match(r"^\(\d\)観光", line):
+        return None
+    if "単価" in line:
+        return "unit_price"
+    if "消費額" in line:
+        return "spend"
+    if "入込" in line:
+        return "visitors"
+    return None
+
+
 def parse_irikomi(path: Path, year: int) -> pd.DataFrame:
-    text = unicodedata.normalize("NFKC", pdfplumber.open(path).pages[0].extract_text())
-    text = text.replace("～", "~").replace("〜", "~")
-    starts = [text.find(s) for s, _, _ in SECTIONS]
-    if min(starts) < 0:
-        raise ValueError("表の見出しが見つからない")
-    recs = []
-    for k, (_, measure, unit) in enumerate(SECTIONS):
-        block = text[starts[k]: starts[k + 1] if k + 1 < len(SECTIONS) else None]
-        for line in block.splitlines():
-            parts = line.split()
-            if len(parts) != 16:
-                continue
-            label = parts[0].replace(" ", "")
-            if label in QUARTERS:
-                period = QUARTERS[label]
-            elif label.endswith("年計") and _era_year(label[:-2]) == year:
-                period = "年計"
-            else:
-                continue  # 前年の年計は、その年の PDF から取る
-            for (purpose, stay, origin), v in zip(IRIKOMI_COLS, parts[1:]):
-                x = _num(v)
-                if x is None and v in "-－":
-                    x = 0.0  # 「-」は該当なし
-                if measure == "unit_price" and stay == "計":
-                    continue  # 単価の小計欄は空欄
-                recs.append((year, period, measure, purpose, stay, origin, None if x is None else x * unit))
+    with pdfplumber.open(path) as pdf:
+        text = "\n".join(pg.dedupe_chars().extract_text() or "" for pg in pdf.pages)
+    text = unicodedata.normalize("NFKC", text).replace("～", "~").replace("〜", "~")
+    recs, measure = [], None
+    for line in text.splitlines():
+        line = re.sub(r"年 (計|平均)", r"年\1", line.strip())
+        sec = _section(line.replace(" ", ""))
+        if sec:
+            measure = sec
+            continue
+        parts = line.split()
+        if measure is None or len(parts) != 16:
+            continue
+        label = parts[0]
+        if label in QUARTERS:
+            period = QUARTERS[label]
+        elif label in ("年計", "年平均") or (re.fullmatch(r"[RH](元|\d+)年(計|平均)", label)
+                                              and _era_year(label[:-3] if label.endswith("平均") else label[:-2]) == year):
+            period = "年計"
+        else:
+            continue  # 前年の年計は、その年の PDF から取る
+        for (purpose, stay, origin), v in zip(IRIKOMI_COLS, parts[1:]):
+            x = _num(v)
+            if x is None and v in "-－":
+                x = 0.0  # 「-」は該当なし
+            if measure == "unit_price" and stay == "計":
+                continue  # 単価の小計欄は空欄
+            recs.append((year, period, measure, purpose, stay, origin, None if x is None else x * UNITS[measure]))
     df = pd.DataFrame(recs, columns=["year", "period", "measure", "purpose", "stay", "origin", "value"])
-    if df.empty or (df.period == "年計").sum() == 0:
+    df = df.drop_duplicates(["year", "period", "measure", "purpose", "stay", "origin"])  # 2ページ目の再掲など
+    if df.empty or not {"visitors", "spend"} <= set(df[df.period == "年計"].measure):
         raise ValueError("年計の行が読めない")
     return df
 
@@ -163,30 +179,45 @@ def _spot_name(s) -> str:
     return _norm(s)  # 改行は表の折り返し
 
 
-def _hist_year(label) -> int:
-    """年次推移の表頭「22年」〜「30年」は平成、「R元年」「2年」〜は令和。"""
-    y = _norm(label).removeprefix("R").removesuffix("年")
-    n = 1 if y == "元" else int(y)
-    return ERA["H"] + n if n >= 22 else ERA["R"] + n
+def _hist_years(labels) -> list[int | None]:
+    """年次推移の表頭（「21年」…「30年」「R元年」「2年」…）を西暦に。「元」より前は平成、以降は令和。"""
+    out, era = [], ERA["H"]
+    for label in labels:
+        m = re.search(r"(元|\d+)年", _norm(label or ""))
+        if not m:
+            out.append(None)
+            continue
+        if m.group(1) == "元":
+            era = ERA["R"]
+        out.append(era + (1 if m.group(1) == "元" else int(m.group(1))))
+    return out
 
 
-def parse_riyousha(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _col(t, label: str) -> int:
+    return next((j for r in t[:4] for j, c in enumerate(r) if _norm(c) == label), 0)
+
+
+def parse_riyousha(path: Path, year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """year はその PDF の調査年。明細表の各行は「今年」「前年」の順に2段で並ぶ。"""
     spots, hist = [], []
     codes = _muni_codes()
     with pdfplumber.open(path) as pdf:
         for page in pdf.pages:
-            for t in page.extract_tables():
+            # 太字を重ね打ちした行は同じ文字が2つずつ読まれるので、重なった文字を除く
+            for t in page.dedupe_chars().extract_tables():
                 header = " ".join(_norm(c) for r in t[:4] for c in r if c)
                 if "観光地類型" in header:
                     kind = "spots"
                 elif "観光地延利用者数の推移" in header:
                     kind = "hist"
                     years_row = next(r for r in t[:4] if any(_norm(c).endswith("年") for c in r if c))
+                    hist_years = _hist_years(years_row[_col(t, "市町村名") + 2:])
                 else:
                     continue
                 muni = None
+                # 「市町村名」の列位置（年によって左端にページ番号の列がある）
+                off = _col(t, "市町村名")
                 for r in t:
-                    off = 1 if kind == "spots" else 0  # 明細表は左端にページ番号の列がある
                     m_cell, name_cell = r[off], r[off + 1]
                     if m_cell and _norm(m_cell) not in ("〃", "市町村名"):
                         muni = _norm(m_cell)
@@ -198,20 +229,18 @@ def parse_riyousha(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
                     if kind == "spots":
                         yrs = str(r[off + 2]).split("\n")
                         cols = [str(c or "").split("\n") for c in r[off + 3: off + 3 + len(SPOT_COLS)]]
-                        for i, y in enumerate(yrs):
+                        for i, y in enumerate(yrs[:2]):
                             vals = {k: _num(c[i]) if i < len(c) else None for k, c in zip(SPOT_COLS, cols)}
                             if vals["total"] is None:
                                 continue
-                            spots.append({"year": ERA["R"] + int(_norm(y)),  # 「7」「6」= 令和の年
+                            spots.append({"year": year - i,
                                           "municipality_code": codes[muni], "municipality": muni, "spot": name,
                                           "category": _norm(r[off + 3 + len(SPOT_COLS)]), **vals})
                     else:
-                        for label, cell in zip(years_row[2:], r[2:]):
-                            if not label or not cell:
-                                continue
-                            v = _num(str(cell).split("\n")[0])
-                            if v is not None:
-                                hist.append((_hist_year(label), codes[muni], muni, name, v * 100))
+                        for y, cell in zip(hist_years, r[off + 2:]):
+                            v = _num(str(cell or "").split("\n")[0])
+                            if y and v is not None:
+                                hist.append((y, codes[muni], muni, name, v * 100))
     s = pd.DataFrame(spots).drop(columns="_chg")
     for c in ["total", "kennai", "kengai", "higaeri", "shukuhaku", *MONTHS]:
         s[c] = s[c] * 100  # 百人 → 人
@@ -221,15 +250,36 @@ def parse_riyousha(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def riyousha() -> None:
-    links = [(u, t, _year_of(t)) for u, t in _links("riyousya.html", r"観光地利用者統計調査結果")]
-    url, text, year = max(links, key=lambda x: x[2] or 0)
-    print(f"  latest: {text}")
-    s, h = parse_riyousha(_get(url))
+    """各年の明細は、その年の PDF（なければ翌年の PDF の「前年」行）から取る。
+    合計が最新 PDF の年次推移（県の公表値と一致）と 0.5% 以内で合う年だけを採用する。"""
+    links = sorted(((u, _year_of(t)) for u, t in _links("riyousya.html", r"観光地利用者統計調査結果")),
+                   key=lambda x: -(x[1] or 0))
+    parsed = {}
+    for url, year in links:
+        try:
+            parsed[year] = parse_riyousha(_get(url), year)
+        except Exception as e:  # 古い年は様式が違う
+            print(f"  {year}年版: 読めない ({type(e).__name__})")
+    latest = max(parsed)
+    h = parsed[latest][1]
+    target = h.groupby("year").visitors.sum()
+    spots = []
+    for year in sorted(target.index, reverse=True):
+        for src in (year, year + 1):  # その年の版 → 翌年の版の「前年」行
+            if src not in parsed:
+                continue
+            s = parsed[src][0]
+            s = s[s.year == year]
+            if len(s) and abs(s.total.sum() / target[year] - 1) < 0.005:
+                spots.append(s.assign(source=f"{src}年版"))
+                print(f"  {year}: {len(s)} 観光地 / {s.total.sum() / 1e4:,.0f} 万人 / {s.spend.sum() / 1e8:,.0f} 億円（{src}年版）")
+                break
+        else:
+            print(f"  {year}: 明細なし（公表値と合う表が読めない）")
+    s = pd.concat(spots, ignore_index=True)
     s.to_parquet(OUT / "riyousha_spots.parquet", index=False)
     h.to_parquet(OUT / "riyousha_history.parquet", index=False)
-    for y, g in s.groupby("year"):
-        print(f"  {y}: {len(g)} 観光地 / 延利用者数 {g.total.sum() / 1e4:,.0f} 万人 / 消費額 {g.spend.sum() / 1e8:,.0f} 億円")
-    print(f"  年次推移: {h.spot.nunique()} 観光地, {h.year.min()}〜{h.year.max()}")
+    print(f"  年次推移: {h.spot.nunique()} 観光地, {h.year.min()}〜{h.year.max()}（{latest}年版）")
 
 
 def main() -> None:

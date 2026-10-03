@@ -135,15 +135,54 @@ with c2:
     )
     st.caption(f"出典: 長野県「観光入込客統計」（観光庁 共通基準, {iy}年）。人数は実人数、観光目的とビジネス目的の合計。")
 
+# ---- 訪日客はどこから ----
+st.subheader("海外からのお客さまは、どの国・地域から？")
+nat = data.shukuhaku_nationality()
+ny = int(nat.ym.dt.year.max())
+by = nat[nat.ym.dt.year == ny].groupby("country").value.sum()
+base = nat[nat.ym.dt.year == 2019].groupby("country").value.sum()
+named = by.drop("その他", errors="ignore").sort_values(ascending=False)
+top = named.head(10)
+rest = by.sum() - top.sum()
+bars = pd.concat([top, pd.Series({"そのほか": rest})])
+winter = nat[(nat.ym.dt.year == ny) & nat.ym.dt.month.isin([12, 1, 2])].groupby("country").value.sum()
+winter = winter.drop("その他", errors="ignore").sort_values(ascending=False)
+c1, c2 = st.columns([3, 2])
+with c1:
+    b = bars.iloc[::-1]
+    chg = (b / base.reindex(b.index) - 1)
+    fig = go.Figure(go.Bar(
+        y=b.index, x=b.values / by.sum(), orientation="h",
+        marker_color=[charts.CONTEXT if k == "そのほか" else charts.MAIN for k in b.index],
+        text=[f"{v / by.sum():.0%}" for v in b.values], textposition="outside", cliponaxis=False,
+        customdata=[[man(v, "人泊"), "" if pd.isna(c) else f"<br>2019年比 {c:+.0%}"] for v, c in zip(b.values, chg)],
+        hovertemplate="<b>%{y}</b><br>%{customdata[0]}（%{x:.1%}）%{customdata[1]}<extra></extra>",
+    ))
+    charts.layout(fig, height=360)
+    fig.update_xaxes(tickformat=".0%", range=[0, b.max() / by.sum() * 1.2], showgrid=True,
+                     gridcolor="rgba(128,128,128,.18)", title=f"{ny}年の外国人延べ宿泊者数に占める割合")
+    fig.update_yaxes(showgrid=False)
+    st.plotly_chart(fig, use_container_width=True)
+with c2:
+    grow = (named.head(10) / base.reindex(named.head(10).index) - 1).dropna().sort_values(ascending=False)
+    st.markdown(
+        f"- いちばん多いのは **{top.index[0]}**（{top.iloc[0] / by.sum():.0%}）、次いで{top.index[1]}・{top.index[2]}です。\n"
+        f"- 冬（12〜2月）に限ると **{winter.index[0]}** と **{winter.index[1]}** が上位。スキーシーズンに合わせた来訪が多い国・地域です。\n"
+        f"- コロナ前（2019年）と比べて大きく伸びたのは **{grow.index[0]}**（{grow.iloc[0]:+.0%}）と"
+        f" **{grow.index[1]}**（{grow.iloc[1]:+.0%}）です。"
+    )
+    st.caption(f"出典: 観光庁「宿泊旅行統計調査」（{ny}年確定値, 参考第1表）。"
+               "国籍別は従業者10人以上の施設の集計なので、上の外国人宿泊者数（全施設）より少し小さくなります。")
+
 # ---- 長い目で見ると ----
-with st.expander("長い目で見ると（2011年からの延べ宿泊者数）"):
+with st.expander("長い目で見ると（2010年代からの宿泊者数と観光消費額）"):
     a = s[s.index.year < last.year].groupby(s.index.year[s.index.year < last.year])[["japanese", "foreign"]].sum()
     fig = go.Figure()
     for col, label, color in [("japanese", "日本人", charts.MAIN), ("foreign", "外国人", charts.SECOND)]:
         fig.add_trace(go.Bar(x=a.index, y=a[col] / 1e4, name=label, marker_color=color,
                              marker_line={"color": "white", "width": 1},
                              hovertemplate=f"%{{x}}年 {label} %{{y:,.0f}}万人泊<extra></extra>"))
-    charts.layout(fig, height=320, barmode="stack", bargap=0.25)
+    charts.layout(fig, height=300, barmode="stack", bargap=0.25, title={"text": "延べ宿泊者数", "font": {"size": 14}})
     fig.update_yaxes(title="万人泊")
     st.plotly_chart(fig, use_container_width=True)
     best = a.sum(axis=1).idxmax()
@@ -151,8 +190,25 @@ with st.expander("長い目で見ると（2011年からの延べ宿泊者数）"
     st.markdown(
         f"コロナ禍（2020〜22年）を除くと、延べ宿泊者数は年 {man(normal.min(), '人泊')}〜{man(normal.max(), '人泊')} で推移し、"
         f"{best}年が最多でした。"
-        f"外国人は 2011年の {man(a.foreign.iloc[0], '人泊')} から {a.index[-1]}年には "
+        f"外国人は {a.index[0]}年の {man(a.foreign.iloc[0], '人泊')} から {a.index[-1]}年には "
         f"{man(a.foreign.iloc[-1], '人泊')} に増え、全体の {a.foreign.iloc[-1] / a.sum(axis=1).iloc[-1]:.0%} になりました。"
     )
+
+    sp_y = ann.spend.dropna()
+    fig = go.Figure(go.Bar(x=sp_y.index, y=sp_y.values / 1e8, marker_color=charts.MAIN,
+                           hovertemplate="%{x}年 %{y:,.0f}億円<extra></extra>"))
+    charts.layout(fig, height=280, bargap=0.25, title={"text": "観光消費額（県全体）", "font": {"size": 14}})
+    fig.update_yaxes(title="億円")
+    st.plotly_chart(fig, use_container_width=True)
+    first = sp_y.index.min()
+    st.markdown(
+        f"観光消費額は {first}年の {yen(sp_y.iloc[0])} から {iy}年の {yen(sp_y.iloc[-1])} へ、"
+        f"約 {sp_y.iloc[-1] / sp_y.iloc[0]:.1f} 倍になりました。"
+        + (f"県を訪れた人の数（実人数）は同じ期間に {ann.visitors[iy] / ann.visitors[first]:.2f} 倍とほぼ横ばいなので、"
+           "**1人あたりの消費額が上がったこと**が伸びの中心です。"
+           if abs(ann.visitors[iy] / ann.visitors[first] - 1) < 0.15 else "")
+    )
+    st.caption("出典: 観光庁「宿泊旅行統計調査」、長野県「観光入込客統計」（観光庁 共通基準）。"
+               "入込客統計の2010〜2015年はビジネス目的、2017・2018年は入込客数が「参考値」とされています。")
 
 ui.sources(["boundaries", "shukuhaku", "irikomi", "riyousha"])
