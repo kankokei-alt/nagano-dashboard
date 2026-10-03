@@ -6,8 +6,8 @@ shukuhaku,宿泊旅行統計調査,観光庁（推移表Excel）,都道府県×�
 shohi,旅行・観光消費動向調査,観光庁,全国×四半期,日本人の旅行単価・消費額,未取得,https://www.mlit.go.jp/kankocho/tokei_hakusyo/shohidoko.html
 inbound_shohi,インバウンド消費動向調査,観光庁,都道府県×四半期/年,訪日客の消費単価,未取得,https://www.mlit.go.jp/kankocho/tokei_hakusyo/gaikokujinshohidoko.html
 hakusho,観光白書,観光庁,年次,全国の動向・解説,未取得,https://www.mlit.go.jp/kankocho/tokei_hakusyo/kankohakusyo.html
-riyousha,観光地利用者統計調査,長野県,観光地×月（2011年〜）、観光地×年（2010年〜）,エリア別の利用者数・観光消費額,取得済み（観光地別の明細 2011〜2025年（2013年含む、2010年なし）、年次推移 2010〜2025年）,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/riyousya.html
-irikomi,観光入込客統計（共通基準）,長野県,県×四半期・年,日帰り/宿泊・県内/県外の入込客数と消費額単価,取得済み（2010〜2025年。2010〜15年のビジネス目的、2017・18年の入込客数は参考値）,https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/irikomi.html
+riyousha,観光地利用者統計調査,長野県（統計ステーションながの Excel・観光課 PDF）,観光地×月（2011年〜）、観光地×年（2010年〜）,エリア別の利用者数・観光消費額,取得済み（観光地別の明細 2011〜2025年（2016年〜は Excel）、年次推移 2010〜2025年）,https://tokei.pref.nagano.lg.jp/statist_list/8998.html
+irikomi,観光入込客統計（共通基準）,長野県,県×四半期・年,日帰り/宿泊・県内/県外の入込客数と消費額単価,取得済み（2010〜2025年。2010〜15年のビジネス目的、2017・18年の入込客数は参考値）,https://tokei.pref.nagano.lg.jp/statist_list/8999.html
 jnto,訪日外客統計,JNTO,国籍×月,インバウンドの先行指標,未取得,https://www.jnto.go.jp/statistics/data/visitors-statistics/
 digital,デジタル観光統計オープンデータ,日本観光振興協会,都道府県・市区町村×月,人流ベースの来訪者数,未取得,https://www.nihon-kankou.or.jp/
 weather,過去の気象データ,気象庁,地点×日,気温・降雪・積雪（スキー需要）,未取得,https://www.data.jma.go.jp/stats/etrn/

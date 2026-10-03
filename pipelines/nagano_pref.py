@@ -35,6 +35,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data/raw/nagano"
 OUT = ROOT / "data/processed"
 BASE = "https://www.pref.nagano.lg.jp/kankoki/sangyo/kanko/toukei/"
+# 統計ステーションながの（県の統計ポータル）。同じ統計の Excel 版がある年はこちらを優先する。
+TOKEI = "https://tokei.pref.nagano.lg.jp"
+TOKEI_RAW = ROOT / "data/raw/tokei"
+UA = {"User-Agent": "Mozilla/5.0 (nagano-dashboard data pipeline)"}  # 既定の User-Agent だと 403 になる
 ERA = {"H": 1988, "R": 2018}
 
 
@@ -163,6 +167,22 @@ def irikomi() -> None:
     df.to_parquet(OUT / "irikomi.parquet", index=False)
     tot = df[(df.period == "年計") & (df.stay == "計")].groupby(["year", "measure"]).value.sum().unstack()
     print(f"wrote irikomi.parquet ({len(df):,} rows)\n{(tot[['visitors', 'spend']] / [1e3, 1e6]).round(0)}")
+    check_irikomi_excel(tot)
+
+
+def check_irikomi_excel(tot: pd.DataFrame) -> None:
+    """統計ステーションながのの Excel 版（2016〜2019年）と年計を照合する（中身は PDF と同じなので照合のみ）。
+    サイトの「平成29年」の項目には平成30年のファイルが置かれているので、年は Excel の表題から読む。"""
+    for path in sorted(tokei_excels("8999", "irikomi").values()):
+        d = pd.read_excel(path, header=None)
+        year = _year_of(" ".join(str(v) for v in d.iloc[:3].values.ravel() if pd.notna(v)))
+        rows = d[d.iloc[:, 0].map(_norm) == "年計"]
+        if year not in tot.index or len(rows) < 2:
+            print(f"  Excel {path.name}: 照合できる様式ではない（{year}年）")
+            continue
+        v, sp = _num(rows.iloc[0, 16]) * 1000, _num(rows.iloc[1, 16]) * 1_000_000
+        ok = abs(v / tot.visitors[year] - 1) < 0.001 and abs(sp / tot.spend[year] - 1) < 0.001
+        print(f"  Excel {path.name}（{year}年）: 入込客数・観光消費額が PDF と{'一致' if ok else '不一致！'}")
 
 
 # ---------------------------------------------------------------- 観光地利用者統計調査
@@ -249,9 +269,91 @@ def parse_riyousha(path: Path, year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     return s, h
 
 
+def tokei_excels(statist: str, name: str) -> dict[int, Path]:
+    """統計ステーションながのの調査（8998=利用者統計, 8999=入込客統計）から、Excel 版がある年を取得する。
+    一覧はページ内の Ajax で読み込まれるため、同じ API を年ごとに呼ぶ。"""
+    ajax = f"{TOKEI}/wp/wp-admin/admin-ajax.php"
+    files = {}
+    for y in range(2000, pd.Timestamp.today().year + 1):
+        html = requests.post(ajax, data={"action": "search_tokei_list", "search_item": f"search_y={y}&statist_name={statist}"},
+                             headers=UA, timeout=60).text
+        for blk in html.split('class="data-title"')[1:]:
+            m = re.search(r'/statistics/(\d+)\.html">(.*?)</a>', blk, re.S)
+            if not m or "エクセル形式" not in blk:
+                continue
+            year = _year_of(m.group(2)) or y  # 一覧の年と調査年がずれていることがある
+            path = TOKEI_RAW / f"{name}{year}.xlsx"
+            if not path.exists():
+                r = requests.get(f"{TOKEI}/statistics-info/statistics_download",
+                                 params={"pid": m.group(1), "type": "excel"}, headers=UA, timeout=180)
+                r.raise_for_status()
+                TOKEI_RAW.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(r.content)
+            files[year] = path
+    return files
+
+
+def parse_riyousha_excel(path: Path, year: int) -> pd.DataFrame:
+    """利用者統計の Excel（統計ステーションながの）。その年の行だけを返す。
+    2016〜2021年版: 1観光地1行（市町村名, 観光地名, 合計, 県内, 県外, 日帰り, 宿泊, 1〜12月, 消費額, 類型）
+    2022年版〜   : 市町村コード・観光地コード付きで、今年/前年の2行"""
+    d = pd.read_excel(path, header=None)
+    codes = _muni_codes()
+    by_code = {v: k for k, v in codes.items()}
+    hdr = [_norm(c) for c in d.iloc[1]]
+    coded = "観光地コード" in hdr
+    if coded:
+        c_muni, c_name, c_year, c_total = 3, 5, 6, 7
+        c_vals = [c_total, *range(9, 25)]
+        c_spend, c_cat = 25, 26
+    else:
+        c_muni, c_name, c_total = 0, 1, 2
+        c_vals = list(range(2, 19))
+        c_spend, c_cat = 19, 20
+    keys = ["total", "kennai", "kengai", "higaeri", "shukuhaku", *MONTHS]
+    recs, muni, code, mcode = [], None, None, None
+    for _, r in d.iloc[4:].iterrows():
+        m = _norm(r.iloc[c_muni]) if pd.notna(r.iloc[c_muni]) else ""
+        if m and m != "〃":
+            muni = m
+        if coded and pd.notna(r.iloc[4]):
+            code = _norm(r.iloc[4]).zfill(5)
+        if coded and pd.notna(r.iloc[2]):
+            mcode = "20" + _norm(r.iloc[2]).split(".")[0].zfill(3)
+            # 市町村名の欄は「〃」のまま市町村が変わっていることがあるので、コードを正とする
+            muni = by_code.get(mcode, muni)
+        if coded and _num(r.iloc[c_year]) != year - ERA["R"]:
+            continue  # 前年の行は使わない
+        name = _norm(r.iloc[c_name]) if pd.notna(r.iloc[c_name]) else ""
+        if not name or muni not in codes:
+            continue  # 見出し・地域振興局計などの小計行
+        vals = [_num(r.iloc[j]) for j in c_vals]
+        if vals[0] is None:
+            continue
+        recs.append({"year": year, "municipality_code": codes[muni], "municipality": muni, "spot": name,
+                     "spot_code": f"{mcode}-{code}" if coded else None,
+                     "category": re.sub(r"\s", "", _norm(r.iloc[c_cat])), **dict(zip(keys, vals)),
+                     "spend": _num(r.iloc[c_spend])})
+    s = pd.DataFrame(recs)
+    for c in keys:
+        s[c] = s[c] * 100  # 百人 → 人
+    s["spend"] = s["spend"] * 1000  # 千円 → 円
+    return s
+
+
+def _category(c) -> str | None:
+    c = _norm(c)
+    for key, name in [("山岳", "山岳"), ("高原", "高原・湖沼"), ("湖沼", "高原・湖沼"),
+                      ("名所", "名所・旧跡"), ("旧跡", "名所・旧跡"), ("温泉", "温泉")]:
+        if key in c:
+            return name
+    return None
+
+
 def riyousha() -> None:
-    """各年の明細は、その年の PDF（なければ翌年の PDF の「前年」行）から取る。
+    """各年の明細は ① 統計ステーションながのの Excel → ② その年の PDF → ③ 翌年の PDF の「前年」行 の順に探す。
     合計が最新 PDF の年次推移（県の公表値と一致）と 0.5% 以内で合う年だけを採用する。"""
+    excels = tokei_excels("8998", "riyousha")
     links = sorted(((u, _year_of(t)) for u, t in _links("riyousya.html", r"観光地利用者統計調査結果")),
                    key=lambda x: -(x[1] or 0))
     parsed = {}
@@ -265,19 +367,31 @@ def riyousha() -> None:
     target = h.groupby("year").visitors.sum()
     spots = []
     for year in sorted(target.index, reverse=True):
+        candidates = []
+        if year in excels:
+            candidates.append((f"{year}年版 Excel", lambda y=year: parse_riyousha_excel(excels[y], y)))
         for src in (year, year + 1):  # その年の版 → 翌年の版の「前年」行
-            if src not in parsed:
-                continue
-            s = parsed[src][0]
-            s = s[s.year == year]
+            if src in parsed:
+                candidates.append((f"{src}年版 PDF", lambda src=src, y=year: parsed[src][0].query("year == @y")))
+        for label, get in candidates:
+            s = get()
             if len(s) and abs(s.total.sum() / target[year] - 1) < 0.005:
-                spots.append(s.assign(source=f"{src}年版"))
-                print(f"  {year}: {len(s)} 観光地 / {s.total.sum() / 1e4:,.0f} 万人 / {s.spend.sum() / 1e8:,.0f} 億円（{src}年版）")
+                spots.append(s.assign(source=label))
+                print(f"  {year}: {len(s)} 観光地 / {s.total.sum() / 1e4:,.0f} 万人 / {s.spend.sum() / 1e8:,.0f} 億円（{label}）")
                 break
         else:
             print(f"  {year}: 明細なし（公表値と合う表が読めない）")
     s = pd.concat(spots, ignore_index=True)
+    # 類型を4分類にそろえる（PDF の重ね打ちで「温泉温泉」などになる行がある）。空欄は同じ観光地の他の年から補う
+    s["category"] = s.category.map(_category)
+    s["category"] = s.category.fillna(s.groupby(["municipality_code", "spot"]).category.transform(
+        lambda c: c.mode().iloc[0] if c.notna().any() else None))
+    # 観光地コード（2022年版〜の Excel にある）を、同じ市町村・同じ名前の観光地の他の年にも付ける
+    known = s.dropna(subset=["spot_code"]).drop_duplicates(["municipality_code", "spot"])
+    key = dict(zip(zip(known.municipality_code, known.spot), known.spot_code))
+    s["spot_code"] = [c if isinstance(c, str) else key.get((m, n)) for c, m, n in zip(s.spot_code, s.municipality_code, s.spot)]
     s.to_parquet(OUT / "riyousha_spots.parquet", index=False)
+    print(f"  観光地コードあり: {s.spot_code.notna().mean():.0%} の行")
     h.to_parquet(OUT / "riyousha_history.parquet", index=False)
     print(f"  年次推移: {h.spot.nunique()} 観光地, {h.year.min()}〜{h.year.max()}（{latest}年版）")
 
