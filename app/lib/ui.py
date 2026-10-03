@@ -16,11 +16,56 @@ CSS = """
 .kpi .sub {font-size: .8rem; opacity: .7;}
 .pending {border: 1px dashed rgba(128,128,128,.5); border-radius: 10px;
           padding: 1.2rem; opacity: .85; text-align: center;}
+.blk {margin: 2.2rem 0 .4rem; padding-top: 1rem; border-top: 1px solid rgba(128,128,128,.25);}
+.blk h3 {margin: 0 0 .5rem; font-size: 1.35rem;}
+.blk .q {display: flex; gap: .6rem; margin: .15rem 0; font-size: .95rem; line-height: 1.55;}
+.blk .tag {flex: 0 0 auto; font-size: .75rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px;
+           background: rgba(42,120,214,.12); color: #2a78d6; height: fit-content; margin-top: .15rem;}
+.blk .tag.when {background: rgba(128,128,128,.14); color: inherit; opacity: .85;}
+[class*="st-key-readout"] {background: rgba(27,175,122,.07); border-left: 5px solid #1baf7a;
+                           border-radius: 6px; padding: .7rem 1rem .4rem;}
+[class*="st-key-readout"] p, [class*="st-key-readout"] li {font-size: 1rem; line-height: 1.65;}
+[class*="st-key-window"] {border: 1px solid rgba(128,128,128,.3); border-radius: 12px; padding: 1rem 1.1rem;
+                          height: 100%; background: rgba(128,128,128,.03);}
+[class*="st-key-window"] .wt {font-size: 1.15rem; font-weight: 700; margin-bottom: .2rem;}
+[class*="st-key-window"] .wq {font-size: .88rem; opacity: .75; margin-bottom: .5rem;}
+[class*="st-key-window"] .wv {font-size: 1rem; line-height: 1.5; min-height: 3em;}
 </style>
 """
 
 
+_n = {"readout": 0}
+
+
+def block(title: str, what: str, when: str) -> None:
+    """グラフの見出し。「何がわかる？」「こんなときに見る」を必ず添える。"""
+    st.markdown(
+        f'<div class="blk"><h3>{title}</h3>'
+        f'<div class="q"><span class="tag">何がわかる？</span><span>{what}</span></div>'
+        f'<div class="q"><span class="tag when">こんなときに見る</span><span>{when}</span></div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def readout(points: list[str], source: str = "") -> None:
+    """グラフの下に置く「ここから読めること」。文章はデータから組み立てたものを渡す。"""
+    _n["readout"] += 1
+    with st.container(key=f"readout_{_n['readout']}"):
+        st.markdown("**📝 ここから読めること**\n" + "\n".join(f"- {p}" for p in points if p))
+    if source:
+        st.caption(f"出典: {source}")
+
+
+def window(key: str, icon: str, title: str, question: str, teaser: str, page: str) -> None:
+    """扉ページの「窓」。押すと詳細ページへ移る。"""
+    with st.container(key=f"window_{key}"):
+        st.markdown(f'<div class="wt">{icon} {title}</div><div class="wq">{question}</div>'
+                    f'<div class="wv">{teaser}</div>', unsafe_allow_html=True)
+        st.page_link(page, label="詳しく見る →")
+
+
 def setup(title: str, lead: str) -> None:
+    _n["readout"] = 0
     st.markdown(CSS, unsafe_allow_html=True)
     st.title(title)
     st.caption(lead)

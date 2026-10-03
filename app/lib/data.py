@@ -133,3 +133,16 @@ def shukuhaku_occupancy(pref_code: str = "20") -> pd.DataFrame:
     d = pd.read_parquet(PROCESSED / "shukuhaku_monthly.parquet")
     d = d[(d.pref_code == pref_code) & (d.metric == "occupancy")]
     return d.pivot_table(index="ym", columns="facility", values="value").sort_index()
+
+
+@st.cache_data
+def shukuhaku_all() -> pd.DataFrame:
+    """全都道府県の宿泊旅行統計（縦持ち, 施設計のみ）。他県との比較に使う。"""
+    d = pd.read_parquet(PROCESSED / "shukuhaku_monthly.parquet")
+    return d[d.facility == "計"]
+
+
+@st.cache_data
+def macro() -> pd.DataFrame:
+    """全国の物価・景気の指標（月次, 横持ち）。"""
+    return pd.read_parquet(PROCESSED / "macro_monthly.parquet").pivot_table(index="ym", columns="indicator", values="value")

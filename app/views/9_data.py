@@ -28,3 +28,8 @@ for name, label in [("jnto", "訪日外客統計（JNTO）"), ("weather", "過�
     if not bad.empty:
         cols = {"station": "地点", "year": "年", "item": "項目", "reason": "使わない理由"}
         st.dataframe(bad[[k for k in cols if k in bad.columns]].rename(columns=cols), hide_index=True, use_container_width=True)
+
+c = data.checks("macro")
+st.markdown("**消費者物価指数・景気ウォッチャー・消費者態度指数（e-Stat）**")
+st.dataframe(c.rename(columns={"indicator": "指標", "months": "照合した月数", "mismatch": "合わなかった月数", "detail": "メモ"}),
+             hide_index=True, use_container_width=True)

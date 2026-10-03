@@ -49,3 +49,14 @@ def updown(x: float) -> str:
     if abs(x) < 0.005:
         return "ほぼ同じ"
     return f"{abs(x):.0%}増" if x > 0 else f"{abs(x):.0%}減"
+
+
+def spread(values: dict[str, float], gap: float) -> dict[str, float]:
+    """線の端に付ける名前が重ならないよう、縦の位置を gap 以上あける（並び順は保つ）。"""
+    items = sorted(values.items(), key=lambda kv: kv[1])
+    out, prev = {}, None
+    for k, v in items:
+        y = v if prev is None else max(v, prev + gap)
+        out[k], prev = y, y
+    shift = (sum(out.values()) - sum(values.values())) / max(len(out), 1)  # 全体の中心を元に近づける
+    return {k: y - shift for k, y in out.items()}

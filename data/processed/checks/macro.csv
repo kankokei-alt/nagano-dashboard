@@ -1,0 +1,5 @@
+indicator,months,mismatch,detail
+cpi_all,200,0,
+cpi_hotel,200,0,
+景気ウォッチャー（全国 合計）,311,0,
+consumer_confidence,619,0,照合できる別の表がないため、e-Stat（景気動向指数 個別系列）の値をそのまま使用

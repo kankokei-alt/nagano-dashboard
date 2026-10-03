@@ -42,10 +42,19 @@ WINTER = [12, 1, 2, 3]
 H = 12
 SEASON_YEARS = 3  # ①の季節の山・谷に使う年数（直近の平常年）
 ALPHA = 10.0  # リッジの強さ（標準化した手がかりに対して）
-FEATURES = {  # 列名: 画面での呼び方
+FEATURES = {  # 列名: 画面での呼び方（いつも使う手がかり）
     "ly_dev": "前年同月", "d_off": "休日数", "d_lw": "3連休", "d_snow": "積雪", "inbound": "訪日客",
     "d_event": "大型イベント", "d_policy": "旅行支援", "struct": "新幹線開業", "mom": "直近の勢い", "mom_h": "直近の勢い",
 }
+# 全国の暮らし・景気の指標（pipelines/macro.py）。検証で②のずれが小さくなるものだけ自動で採用する
+CANDIDATES = {
+    "price": "物価の上がり方",          # 消費者物価指数 総合の前年同月比（%）… 実質の負担感
+    "hotel_price": "宿泊料の上がり方",   # 宿泊料の前年同月比 − 総合の前年同月比（%）
+    "ww_travel": "旅行業界の先行き",     # 景気ウォッチャー 旅行・交通関連の先行き判断DI − 50
+    "ww_koshinetsu": "甲信越の景気の先行き",  # 景気ウォッチャー 甲信越の先行き判断DI − 50
+    "confidence": "消費者の気持ち",      # 消費者態度指数の前年同月差
+}
+MIN_GAIN = 0.01  # 採用に必要な、平均のずれの改善幅（pt）
 
 
 def M(t: pd.Timestamp, k: int) -> pd.Timestamp:
@@ -70,6 +79,8 @@ def load() -> dict:
     w = pd.read_parquet(P / "weather_monthly.parquet")
     snow = w[w.station.isin(SKI)].pivot_table(index="ym", columns="station", values="snow_depth_max").sort_index()
 
+    macro = pd.read_parquet(P / "macro_monthly.parquet").pivot_table(index="ym", columns="indicator", values="value")
+
     j = pd.read_parquet(P / "jnto_monthly.parquet")
     jnto = j[j.kind == "total"].set_index("ym").value.sort_index()
 
@@ -90,7 +101,7 @@ def load() -> dict:
     for _, e in ev[ev.kind == "structural"].iterrows():  # 開業から1年間は前年より押し上げ
         struct[(idx >= e.start.to_period("M").to_timestamp()) & (idx < M(e.start, 12))] = 1.0
     abnormal = share("covid") > 0
-    return {"occ": occ, "foreign_share": foreign_share, "cal": cal, "snow": snow, "jnto": jnto,
+    return {"occ": occ, "foreign_share": foreign_share, "cal": cal, "snow": snow, "jnto": jnto, "macro": macro,
             "event": share("event"), "policy": share("policy"), "struct": struct,
             "abnormal": abnormal[abnormal].index}
 
@@ -98,10 +109,28 @@ def load() -> dict:
 class Info:
     """予測時点 o で「分かっていること」だけを返す。"""
 
-    def __init__(self, d: dict, o: pd.Timestamp, lag_weather: int, lag_jnto: int):
-        self.d, self.o = d, o
-        self.snow_known = M(o, lag_weather)
-        self.jnto_known = min(M(o, lag_jnto), d["jnto"].index.max())
+    def __init__(self, d: dict, o: pd.Timestamp, lags: dict):
+        self.d, self.o, self.lags = d, o, lags
+        self.snow_known = M(o, lags["weather"])
+        self.jnto_known = min(M(o, lags["jnto"]), d["jnto"].index.max())
+
+    def macro(self, ind: str) -> pd.Series:
+        """全国の指標のうち、予測時点で公表済みの月まで。"""
+        x = self.d["macro"][ind].dropna()
+        return x[x.index <= M(self.o, self.lags[ind])]
+
+    def latest(self) -> dict:
+        """予測時点で分かっている最新の値（先の月もこの値が続くとみなす）。"""
+        yoy = lambda x: (x.iloc[-1] / x.iloc[-13] - 1) * 100  # noqa: E731
+        allp, hotel = self.macro("cpi_all"), self.macro("cpi_hotel")
+        conf = self.macro("consumer_confidence")
+        return {
+            "price": yoy(allp),
+            "hotel_price": yoy(hotel) - yoy(allp),
+            "ww_travel": self.macro("ww_travel_out").iloc[-1] - 50,
+            "ww_koshinetsu": self.macro("ww_koshinetsu_out").iloc[-1] - 50,
+            "confidence": conf.iloc[-1] - conf.iloc[-13],
+        }
 
     def snow(self, t: pd.Timestamp) -> float:
         """スキー場の多い地点の最深積雪（cm, 地点平均）。まだ観測していない月は平年並み。"""
@@ -134,6 +163,7 @@ def features(d: dict, occ: pd.Series, info: Info, t: pd.Timestamp, base1: float)
     h = months_between(o, t)
     fs = d["foreign_share"]
     return {
+        **info.latest(),
         "ly_dev": occ[ly] - base1,
         "d_off": cal.off_days[t] - same.off_days.mean(),
         "d_lw": cal.long_weekends[t] - same.long_weekends.mean(),
@@ -174,13 +204,13 @@ def ridge_fit(X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, float, np.ndarr
     return coef, y.mean() - mu @ coef, mu, sd
 
 
-def rows(d: dict, occ: pd.Series, origins, last: pd.Timestamp, lags: tuple[int, int]) -> pd.DataFrame:
+def rows(d: dict, occ: pd.Series, origins, last: pd.Timestamp, lags: dict) -> pd.DataFrame:
     """(予測時点 o, 対象月 t) の組ごとの手がかりと答え。"""
     out = []
     for o in origins:
         if not is_normal(d, [M(o, -k) for k in range(15)]) or M(o, -14) < occ.index.min():
             continue  # 直近の水準・勢いがコロナ期間にかかる時点は使わない
-        info = Info(d, o, *lags)
+        info = Info(d, o, lags)
         for h in range(1, H + 1):
             t = M(o, h)
             if t > M(last, H) or not is_normal(d, [t, M(t, -12)]):
@@ -193,40 +223,73 @@ def rows(d: dict, occ: pd.Series, origins, last: pd.Timestamp, lags: tuple[int, 
     return pd.DataFrame(out)
 
 
-def run(d: dict, facility: str, lags: tuple[int, int]) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    occ = d["occ"][facility].dropna()
-    last = occ.index.max()
-    allrows = rows(d, occ, pd.date_range(occ.index.min(), last, freq="MS"), last, lags)
-    allrows = allrows[allrows.inbound.notna()]
-    cols = list(FEATURES)
-
-    # 検証: 予測時点ごとに、それまでに答えが分かっている組だけで学習
+def backtest(allrows: pd.DataFrame, cols: list[str], last: pd.Timestamp, facility: str) -> pd.DataFrame:
+    """予測時点ごとに、それまでに答えが分かっている組だけで学習して 1〜12か月先を予測する。"""
     bt = []
-    test_origins = [o for o in allrows.origin.unique() if o >= pd.Timestamp("2015-01-01") and o < last]
-    for o in test_origins:
+    for o in [o for o in allrows.origin.unique() if pd.Timestamp("2015-01-01") <= o < last]:
         train = allrows[(allrows.ym <= o) & allrows.actual.notna()]
         test = allrows[(allrows.origin == o) & (allrows.ym <= last)]
         if len(train) < 60 or test.empty:
             continue
         coef, c0, _, _ = ridge_fit(train[cols].values, (train.actual - train.base).values)
-        for _, r in test.iterrows():
-            bt.append({"facility": facility, "origin": o, "ym": r.ym, "h": r.h, "actual": r.actual,
-                       "seasonal": r.base, "model": r.base + c0 + r[cols].values @ coef})
-    bt = pd.DataFrame(bt)
-    mae = {k: float((bt[k] - bt.actual).abs().mean()) for k in ["seasonal", "model"]}
-    chosen = "model" if mae["model"] < mae["seasonal"] else "seasonal"
+        pred = test.base.values + c0 + test[cols].values @ coef
+        bt.append(pd.DataFrame({"facility": facility, "origin": o, "ym": test.ym.values, "h": test.h.values,
+                                "actual": test.actual.values, "seasonal": test.base.values, "model": pred}))
+    return pd.concat(bt, ignore_index=True)
+
+
+def mae(bt: pd.DataFrame, k: str) -> float:
+    return float((bt[k] - bt.actual).abs().mean())
+
+
+def prepare(d: dict, facility: str, lags: dict) -> tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
+    occ = d["occ"][facility].dropna()
+    last = occ.index.max()
+    allrows = rows(d, occ, pd.date_range(occ.index.min(), last, freq="MS"), last, lags)
+    allrows = allrows[allrows.inbound.notna()]
+    return occ, allrows, rows(d, occ, [last], last, lags)
+
+
+def select(prepared: dict) -> tuple[list[str], list[dict]]:
+    """全国の指標を1つずつ足して、5系列の②の平均のずれが MIN_GAIN 以上小さくなるものだけ採用する（前向き選択）。"""
+    def score(cols):
+        return np.mean([mae(backtest(a, cols, occ.index.max(), f), "model") for f, (occ, a, _) in prepared.items()])
+
+    chosen, base = [], score(list(FEATURES))
+    log = [{"step": 0, "added": "（いつも使う手がかりだけ）", "mae": base}]
+    while True:
+        rest = [c for c in CANDIDATES if c not in chosen]
+        trials = {c: score(list(FEATURES) + chosen + [c]) for c in rest}
+        for c, v in trials.items():
+            log.append({"step": len(chosen) + 1, "added": CANDIDATES[c], "mae": v, "gain": base - v})
+        if not trials:
+            break
+        best = min(trials, key=trials.get)
+        if base - trials[best] < MIN_GAIN:
+            break
+        chosen.append(best)
+        base = trials[best]
+    return chosen, log
+
+
+def run(facility: str, occ: pd.Series, allrows: pd.DataFrame, now: pd.DataFrame, cols: list[str]
+        ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    last = occ.index.max()
+    names = {**FEATURES, **CANDIDATES}
+    bt = backtest(allrows, cols, last, facility)
+    err_ = {k: mae(bt, k) for k in ["seasonal", "model"]}
+    chosen = "model" if err_["model"] < err_["seasonal"] else "seasonal"
 
     # いまの予測（全データで学習）
     train = allrows[allrows.actual.notna()]
     coef, c0, _, _ = ridge_fit(train[cols].values, (train.actual - train.base).values)
-    now = rows(d, occ, [last], last, lags)
     err = bt.assign(e=bt.actual - bt[chosen])
     fc = []
     for _, r in now.iterrows():
         e = err[err.h.between(*((1, 3) if r.h <= 3 else (4, 6) if r.h <= 6 else (7, 12)))].e
-        contrib = {FEATURES[k]: 0.0 for k in cols}
+        contrib = {names[k]: 0.0 for k in cols}
         for k, cf in zip(cols, coef):
-            contrib[FEATURES[k]] += cf * r[k]
+            contrib[names[k]] += cf * r[k]
         p_model = r.base + c0 + sum(contrib.values())
         p_seas = r.base
         pred = p_model if chosen == "model" else p_seas
@@ -237,24 +300,32 @@ def run(d: dict, facility: str, lags: tuple[int, int]) -> tuple[pd.DataFrame, pd
     by_h = (bt.assign(seasonal=(bt.seasonal - bt.actual).abs(), model=(bt.model - bt.actual).abs())
               .assign(hb=lambda x: pd.cut(x.h, [0, 3, 6, 12], labels=["1〜3か月先", "4〜6か月先", "7〜12か月先"]))
               .groupby("hb", observed=True)[["seasonal", "model"]].mean().round(2).to_dict("index"))
-    within = float(((err.e >= err.groupby(pd.cut(err.h, [0, 3, 6, 12])).e.transform(lambda x: x.quantile(0.1)))
-                    & (err.e <= err.groupby(pd.cut(err.h, [0, 3, 6, 12])).e.transform(lambda x: x.quantile(0.9)))).mean())
-    meta = {"facility": facility, "last_actual": f"{last:%Y-%m}", "chosen": chosen, "mae": mae, "mae_by_h": by_h,
+    meta = {"facility": facility, "last_actual": f"{last:%Y-%m}", "chosen": chosen, "mae": err_, "mae_by_h": by_h,
             "n_backtest": int(len(bt)), "n_origins": int(bt.origin.nunique()),
-            "backtest_years": sorted({int(y) for y in bt.ym.dt.year}), "coverage_80": within,
-            "coef": {k: float(v) for k, v in zip(cols, coef)}}
+            "backtest_years": sorted({int(y) for y in bt.ym.dt.year}),
+            "coef": {k: float(v) for k, v in zip(cols, coef)},
+            "latest_inputs": {names[k]: float(now[k].iloc[0]) for k in cols if k in CANDIDATES}}
     return pd.DataFrame(fc), bt, meta
 
 
 def main() -> None:
     d = load()
     occ_last = d["occ"]["計"].dropna().index.max()
-    lag_w = months_between(occ_last, d["snow"].dropna(how="all").index.max())
-    lag_j = months_between(occ_last, d["jnto"].index.max())
-    print(f"宿泊旅行統計 {occ_last:%Y-%m} まで / 気象 +{lag_w}か月 / JNTO +{lag_j}か月 先まで公表済み")
+    lags = {"weather": months_between(occ_last, d["snow"].dropna(how="all").index.max()),
+            "jnto": months_between(occ_last, d["jnto"].index.max()),
+            **{k: months_between(occ_last, d["macro"][k].dropna().index.max()) for k in d["macro"].columns}}
+    print(f"宿泊旅行統計 {occ_last:%Y-%m} まで / ほかの指標が何か月先まで公表済みか: {lags}")
+    prepared = {f: prepare(d, f, lags) for f in FACILITIES}
+
+    extra, log = select(prepared)
+    for x in log:
+        print(f"  [{x['step']}] {x['added']}: 5系列の②の平均のずれ {x['mae']:.3f}pt" + (f"（{x['gain']:+.3f}）" if "gain" in x else ""))
+    print(f"  → 採用した全国の指標: {[CANDIDATES[c] for c in extra] or 'なし'}")
+    cols = list(FEATURES) + extra
+
     fcs, bts, metas = [], [], []
-    for f in FACILITIES:
-        fc, bt, meta = run(d, f, (lag_w, lag_j))
+    for f, (occ, allrows, now) in prepared.items():
+        fc, bt, meta = run(f, occ, allrows, now, cols)
         fcs.append(fc), bts.append(bt), metas.append(meta)
         print(f"  {f}: ① {meta['mae']['seasonal']:.2f}pt / ② {meta['mae']['model']:.2f}pt → "
               f"{'②' if meta['chosen'] == 'model' else '①'}を採用（検証 {meta['n_backtest']}件）")
@@ -262,8 +333,9 @@ def main() -> None:
     pd.concat(fcs).to_parquet(OUT / "forecast.parquet", index=False)
     pd.concat(bts).to_parquet(OUT / "backtest.parquet", index=False)
     (OUT / "forecast_meta.json").write_text(json.dumps(
-        {"generated": f"{pd.Timestamp.today():%Y-%m-%d}", "lag_weather": lag_w, "lag_jnto": lag_j,
-         "snow_stations": SKI, "facilities": metas}, ensure_ascii=False, indent=1), encoding="utf-8")
+        {"generated": f"{pd.Timestamp.today():%Y-%m-%d}", "lag_weather": lags["weather"], "lag_jnto": lags["jnto"],
+         "lags": lags, "snow_stations": SKI, "candidates": CANDIDATES, "selected": [CANDIDATES[c] for c in extra],
+         "selection_log": log, "facilities": metas}, ensure_ascii=False, indent=1, default=float), encoding="utf-8")
     print(f"wrote {OUT}/forecast.parquet, backtest.parquet, forecast_meta.json")
 
 
