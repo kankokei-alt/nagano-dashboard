@@ -1,4 +1,4 @@
-"""e-Stat API (v3.0) の最小クライアント。
+"""e-Stat API (v3.0) の最小クライアント。仕様: 「政府統計の総合窓口(e-Stat) API仕様 バージョン3.0」
 
 アプリケーションIDは環境変数 ESTAT_APP_ID で渡す（リポジトリには書かない）。
   発行: e-Stat にログイン → マイページ → API機能(アプリケーションID発行)
@@ -28,6 +28,14 @@ def _app_id() -> str:
     return app_id
 
 
+def _check(body: dict, root: str) -> dict:
+    """API仕様 4.1: RESULT.STATUS が 0〜2 以外ならエラー（0=正常, 1=該当なし, 2=一部問題あり）。"""
+    res = body[root]["RESULT"]
+    if int(res["STATUS"]) > 2:
+        raise RuntimeError(f"e-Stat API エラー {res['STATUS']}: {res['ERROR_MSG']}")
+    return body[root]
+
+
 def search(keyword: str, limit: int = 50) -> pd.DataFrame:
     r = requests.get(
         f"{BASE}/getStatsList",
@@ -35,7 +43,7 @@ def search(keyword: str, limit: int = 50) -> pd.DataFrame:
         timeout=60,
     )
     r.raise_for_status()
-    tables = r.json()["GET_STATS_LIST"]["DATALIST_INF"].get("TABLE_INF", [])
+    tables = _check(r.json(), "GET_STATS_LIST").get("DATALIST_INF", {}).get("TABLE_INF", [])
     if isinstance(tables, dict):
         tables = [tables]
     return pd.DataFrame(
@@ -57,7 +65,10 @@ def get_data(stats_data_id: str, **filters: str) -> pd.DataFrame:
     while True:
         r = requests.get(f"{BASE}/getStatsData", params=params, timeout=120)
         r.raise_for_status()
-        sd = r.json()["GET_STATS_DATA"]["STATISTICAL_DATA"]
+        body = _check(r.json(), "GET_STATS_DATA")
+        if "STATISTICAL_DATA" not in body or "DATA_INF" not in body["STATISTICAL_DATA"]:
+            break  # 該当データなし（仕様 4.4: 0件のとき DATA_INF は出力されない）
+        sd = body["STATISTICAL_DATA"]
         if not labels:
             for obj in sd["CLASS_INF"]["CLASS_OBJ"]:
                 cls = obj["CLASS"] if isinstance(obj["CLASS"], list) else [obj["CLASS"]]
@@ -69,6 +80,8 @@ def get_data(stats_data_id: str, **filters: str) -> pd.DataFrame:
             break
         params["startPosition"] = nxt
 
+    if not rows:
+        return pd.DataFrame()
     df = pd.DataFrame(rows).rename(columns={"$": "value"})
     df.columns = [c.lstrip("@") for c in df.columns]
     for key, mapping in labels.items():
