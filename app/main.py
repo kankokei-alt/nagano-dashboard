@@ -26,7 +26,15 @@ PREF = [  # 長野県全体（扉ページから各詳細へ）
 ]
 pages = {
     "長野県全体": [st.Page(p, title=t, icon=i, default=(n == 0)) for n, (p, t, i) in enumerate(PREF)],
-    "市町村": [st.Page("views/2_municipality.py", title="市町村を深掘りする", icon=":material/location_city:")],
+    "市町村": [st.Page(p, title=t, icon=i, url_path=u) for p, t, i, u in [
+        ("views/muni/0_top.py", "市町村の全体像", ":material/location_city:", "muni"),
+        ("views/muni/1_visitors.py", "誰が来ている？（市町村）", ":material/groups:", "muni_visitors"),
+        ("views/muni/2_season.py", "いつ来ている？（市町村）", ":material/calendar_month:", "muni_season"),
+        ("views/muni/3_spots.py", "観光地（市町村）", ":material/landscape:", "muni_spots"),
+        ("views/muni/4_spend.py", "消費（市町村）", ":material/payments:", "muni_spend"),
+        ("views/muni/5_area.py", "エリア・宿泊・気象（市町村）", ":material/map:", "muni_area"),
+        ("views/muni/6_compare.py", "他の市町村と比べる", ":material/leaderboard:", "muni_compare"),
+    ]],
     "広域連携": [st.Page("views/3_kouiki.py", title="広域で連携する", icon=":material/hub:")],
     "資料室": [st.Page("views/report.py", title="レポートを作る", icon=":material/description:"),
                st.Page("views/9_data.py", title="データと出典", icon=":material/database:")],

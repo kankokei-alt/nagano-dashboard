@@ -129,8 +129,17 @@ a {color: var(--sky);}
 .wt {font-size: 1.08rem; font-weight: 700; margin: .15rem 0 .15rem; color: var(--alps);}
 .wq {font-size: .8rem; color: var(--muted); margin-bottom: .55rem;}
 .wv {font-size: .9rem; line-height: 1.6;}
+[class*="st-key-window"] {position: relative; cursor: pointer;}
+[class*="st-key-window"] [data-testid="stElementContainer"], [class*="st-key-window"] [data-testid="stPageLink"],
+[class*="st-key-window"] [data-testid="stPageLink"] * {position: static !important;}
 [class*="st-key-window"] [data-testid="stPageLink"] a {padding-left: 0;}
+[class*="st-key-window"] [data-testid="stPageLink"] a::after {content: ""; position: absolute; inset: 0; z-index: 2;}  /* カード全体を押せるように */
 [class*="st-key-window"] [data-testid="stPageLink"] p {font-weight: 700; color: var(--sky);}
+
+/* 市町村の選択 */
+[class*="st-key-mpick"] {background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--apple); border-radius: 14px;
+                         padding: .7rem 1.1rem .5rem; margin: .2rem 0 .4rem;}
+.mmeta {font-size: .9rem; color: var(--muted); padding-top: .9rem;} .mmeta b {font-size: 1.15rem; color: var(--alps); margin-right: .3rem;}
 
 /* 前後のテーマ */
 [class*="st-key-pager"] [data-testid="stPageLink"] a {background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: .8rem 1rem;}
@@ -189,7 +198,7 @@ def _md(text: str) -> str:
 
 
 # サイトの構成（ヘッダーのメニュー・セクション内のタブ・前後のテーマ）
-GNAV = [("pref", "長野県全体", "views/pref/0_top.py"), ("muni", "市町村", "views/2_municipality.py"),
+GNAV = [("pref", "長野県全体", "views/pref/0_top.py"), ("muni", "市町村", "views/muni/0_top.py"),
         ("kouiki", "広域連携", "views/3_kouiki.py"), ("report", "レポートを作る", "views/report.py"),
         ("data", "データと出典", "views/9_data.py")]
 LNAV = [("views/pref/0_top.py", "全体像"), ("views/pref/1_visitors.py", "誰が来ている"),
@@ -197,6 +206,11 @@ LNAV = [("views/pref/0_top.py", "全体像"), ("views/pref/1_visitors.py", "誰�
         ("views/pref/4_stay.py", "宿・稼働率"), ("views/pref/5_spend.py", "消費"),
         ("views/pref/6_areas.py", "県内のエリア"), ("views/pref/7_compare.py", "他県と比べる"),
         ("views/pref/8_forecast.py", "これから")]
+LNAV_MUNI = [("views/muni/0_top.py", "全体像"), ("views/muni/1_visitors.py", "誰が来ている"),
+             ("views/muni/2_season.py", "季節"), ("views/muni/3_spots.py", "観光地"),
+             ("views/muni/4_spend.py", "消費"), ("views/muni/5_area.py", "エリア・宿泊・気象"),
+             ("views/muni/6_compare.py", "他の市町村と比べる")]
+TABS = {"pref": LNAV, "muni": LNAV_MUNI}
 SECTION = {"長野県全体": "pref", "市町村": "muni", "広域連携": "kouiki", "資料室": None}
 
 
@@ -229,9 +243,9 @@ def _header(here: str, sec: str | None) -> None:
                     st.page_link(path, label=label)
         with c3:
             st.markdown(f'<div class="upd">データ更新<br><b>{last.year}年{last.month}月分</b></div>', unsafe_allow_html=True)
-    if sec == "pref":
+    if sec in TABS:
         with st.container(key="bleed_lnav"), st.container(horizontal=True, gap="medium", vertical_alignment="bottom"):
-            for i, (path, label) in enumerate(LNAV):
+            for i, (path, label) in enumerate(TABS[sec]):
                 with st.container(key=f"lnav_{'on' if path == here else 'off'}_{i}", width="content"):
                     st.page_link(path, label=label)
 
@@ -271,17 +285,19 @@ def footer() -> None:
     if _cap() is not None:
         return
     here = _st()["page"].get("here", "")
-    paths = [p for p, _ in LNAV]
+    tabs = next((t for t in TABS.values() if here in [p for p, _ in t]), [])
+    paths = [p for p, _ in tabs]
     if here in paths:
         i = paths.index(here)
+        LNAV_ = tabs
         with st.container(key="pager"):
             c1, c2 = st.columns(2)
             if i > 0:
                 with c1:
-                    st.page_link(LNAV[i - 1][0], label=f"← 前のテーマ：{LNAV[i - 1][1]}")
-            if i < len(LNAV) - 1:
+                    st.page_link(LNAV_[i - 1][0], label=f"← 前のテーマ：{LNAV_[i - 1][1]}")
+            if i < len(LNAV_) - 1:
                 with c2:
-                    st.page_link(LNAV[i + 1][0], label=f"次のテーマ：{LNAV[i + 1][1]} →")
+                    st.page_link(LNAV_[i + 1][0], label=f"次のテーマ：{LNAV_[i + 1][1]} →")
     with st.container(key="bleed_footer"):
         st.markdown(
             '<svg class="foot-ridge" viewBox="0 0 1200 90" preserveAspectRatio="none" aria-hidden="true">'

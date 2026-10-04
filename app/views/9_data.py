@@ -15,8 +15,9 @@ FILES = [
     ("riyousha_spots.parquet", "観光地利用者統計（観光地別の明細）", "観光地ごとの延利用者数・月別・消費額（2011年〜）", "riyousha"),
     ("riyousha_history.parquet", "観光地利用者統計（年次推移）", "観光地ごとの延利用者数、年別（2010年〜）", "riyousha"),
     ("jnto_monthly.parquet", "訪日外客統計（JNTO）", "全国の訪日外客数、国籍×月（2003年〜）", "jnto"),
-    ("weather_monthly.parquet", "過去の気象データ（気象庁）", "主要6地点の平均気温・降雪量・最深積雪、月別", "weather"),
+    ("weather_monthly.parquet", "過去の気象データ（気象庁）", "10地点（各広域に1つ）の平均気温・降雪量・最深積雪、月別", "weather"),
     ("macro_monthly.parquet", "物価・景気の指標（e-Stat）", "消費者物価指数・景気ウォッチャー・消費者態度指数、月別", "macro"),
+    ("population.parquet", "国勢調査 市町村別人口", "77市町村の総人口（2010・2015・2020年）", "population"),
     ("calendar_monthly.parquet", "祝日・連休カレンダー", "月ごとの休日数・3連休の回数", "holidays"),
 ]
 

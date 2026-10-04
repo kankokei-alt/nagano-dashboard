@@ -144,8 +144,8 @@ with ui.card():
 
     c1, c2 = st.columns(2)
     with c1:
-        st.page_link("views/2_municipality.py", label="🔍 市町村を選んで詳しく見る →")
+        st.page_link("views/muni/0_top.py", label="市町村を選んで詳しく見る →")
     with c2:
-        st.page_link("views/3_kouiki.py", label="🤝 広域で連携する（広域ごとに見る）→")
+        st.page_link("views/3_kouiki.py", label="広域で連携する（広域ごとに見る）→")
 
 ui.sources(["riyousha", "shukuhaku", "boundaries"])
