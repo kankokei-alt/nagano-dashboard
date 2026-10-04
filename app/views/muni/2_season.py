@@ -49,7 +49,8 @@ with ui.card():
     pts = []
     if ry - 1 in mon.index:
         d = (mon.loc[ry] / mon.loc[ry - 1] - 1)
-        pts.append(f"前年より大きく増えた月は **{int(d.idxmax()[1:])}月**（{d.max():+.0%}）、減った月は **{int(d.idxmin()[1:])}月**（{d.min():+.0%}）です。")
+        pts.append((f"前年より大きく増えた月は **{int(d.idxmax()[1:])}月**（{d.max():+.0%}）" if d.max() > 0 else "前年を上回った月はありません")
+                   + (f"、大きく減った月は **{int(d.idxmin()[1:])}月**（{d.min():+.0%}）です。" if d.min() < 0 else "。どの月も前年を上回りました。"))
     if 2019 in mon.index:
         d19 = mon.loc[ry] / mon.loc[2019] - 1
         pts.append(f"2019年を上回った月: {'・'.join(f'{int(k[1:])}月' for k in d19[d19 > 0].index) or 'なし'}。")

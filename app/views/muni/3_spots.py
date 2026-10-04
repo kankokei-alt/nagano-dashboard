@@ -44,8 +44,10 @@ with ui.card():
     g = cur.dropna(subset=["yoy"])
     ui.readout([
         f"上位3か所で市町村全体の {top.total.iloc[:3].sum() / cur.total.sum():.0%} を占めます。" if len(top) >= 3 else "",
-        (f"前年からの伸びが大きいのは **{g.yoy.idxmax()}**（{g.yoy.max():+.0%}）、減少が大きいのは **{g.yoy.idxmin()}**（{g.yoy.min():+.0%}）です。" if len(g) >= 2 else ""),
-    ], source=f"長野県「観光地利用者統計調査」（{ry}年）")
+        (f"前年からの伸びが大きいのは **{g.yoy.idxmax()}**（{g.yoy.max():+.0%}）"
+         + (f"、減少が大きいのは **{g.yoy.idxmin()}**（{g.yoy.min():+.0%}）です。" if g.yoy.min() < 0 else "で、どの観光地も前年を上回りました。")
+         if len(g) >= 2 else ""),
+    ], source=f"長野県「観光地利用者統計調査」（{ry}年）。スキー場は調査の対象外です")
 
 # ---- 2. 推移 ----
 with ui.card():
@@ -95,7 +97,8 @@ if len(g19) >= 2:
         ui.chart(fig)
         ui.readout([
             f"2019年を上回っているのは {(g19.vs19 > 0).sum()} か所、下回っているのは {(g19.vs19 < 0).sum()} か所です。",
-            f"いちばん伸びたのは **{g19.index[-1]}**（{g19.vs19.iloc[-1]:+.0%}）、いちばん減ったのは **{g19.index[0]}**（{g19.vs19.iloc[0]:+.0%}）です。",
+            f"いちばん伸びたのは **{g19.index[-1]}**（{g19.vs19.iloc[-1]:+.0%}）"
+            + (f"、いちばん減ったのは **{g19.index[0]}**（{g19.vs19.iloc[0]:+.0%}）です。" if g19.vs19.iloc[0] < 0 else "です。"),
         ], source="長野県「観光地利用者統計調査」")
 
 # ---- 4. 種類 ----

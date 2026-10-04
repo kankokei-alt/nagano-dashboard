@@ -41,7 +41,8 @@ with ui.card():
     ui.readout([
         f"上位3市町（{'・'.join(names[c] for c in by_muni.index[:3])}）で県全体の {by_muni.iloc[:3].sum() / by_muni.sum():.0%}、上位20市町村で {by_muni.head(20).sum() / by_muni.sum():.0%} を占めます。",
         f"50万人以上の市町村で前年から伸びが大きいのは **{names[gm.index[-1]]}**（{gm.iloc[-1]:+.0%}）、"
-        f"減少が大きいのは **{names[gm.index[0]]}**（{gm.iloc[0]:+.0%}）です。" if len(gm) >= 2 else "",
+        + (f"減少が大きいのは **{names[gm.index[0]]}**（{gm.iloc[0]:+.0%}）です。" if gm.iloc[0] < 0 else "どこも前年を上回りました。")
+        if len(gm) >= 2 else "",
         f"広域では **{kk.index[0]}** がいちばん多く（県全体の {kk.iloc[0] / kk.sum():.0%}）、**{kk.index[-1]}** がいちばん少ない（{kk.iloc[-1] / kk.sum():.0%}）です。",
     ], source=f"長野県「観光地利用者統計調査」（{ry}年）。（ ）内は前年比")
     with st.expander("地図で見る"):
@@ -70,7 +71,8 @@ with ui.card():
         f"いちばん多いのは **{top.index[-1]}**（{top.municipality.iloc[-1]}, {man(top.total.iloc[-1])}）です。",
         f"トップ15で県全体の {top.total.sum() / cur.total.sum():.0%} を占めます。",
         f"10万人以上の観光地のうち、前年から大きく伸びたのは **{big.index[-1]}**（{big.chg.iloc[-1]:+.0%}）、"
-        f"大きく減ったのは **{big.index[0]}**（{big.chg.iloc[0]:+.0%}）です。" if len(big) >= 2 else "",
+        + (f"大きく減ったのは **{big.index[0]}**（{big.chg.iloc[0]:+.0%}）です。" if big.chg.iloc[0] < 0 else "どれも前年を上回りました。")
+        if len(big) >= 2 else "",
     ], source=f"長野県「観光地利用者統計調査」（{ry}年）。（ ）内は前年比")
 
 # ---- 3. 10広域の回復 ----
