@@ -4,7 +4,7 @@ import streamlit as st
 from lib import charts, data, maps, ui
 from lib.charts import man, updown
 
-ui.setup("広域で連携する", "複数の市町村をまとめて、ひとつの観光圏として見るページです。")
+ui.setup("広域で連携する", "複数の市町村をまとめて、ひとつの観光圏として見るページです。", kicker="広域連携")
 
 g = data.municipalities()
 k = data.kouiki()

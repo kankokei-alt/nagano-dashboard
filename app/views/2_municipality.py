@@ -4,7 +4,7 @@ import streamlit as st
 from lib import charts, data, maps, ui
 from lib.charts import man, updown, yen
 
-ui.setup("市町村を深掘りする", "ひとつの市町村を選んで、エリアごとの特徴と季節の動きを見るページです。")
+ui.setup("市町村を深掘りする", "ひとつの市町村を選んで、エリアごとの特徴と季節の動きを見るページです。", kicker="市町村")
 
 g = data.municipalities()
 names = g.sort_values("code").name.tolist()
