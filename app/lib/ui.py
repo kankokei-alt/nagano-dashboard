@@ -41,28 +41,31 @@ a {color: var(--sky);}
                          padding-left: var(--wrap) !important; padding-right: var(--wrap) !important;}
 
 /* サイトヘッダー */
-[class*="st-key-bleed_header"] {background: #fff; border-bottom: 1px solid var(--line); padding-top: .55rem; padding-bottom: .35rem;}
-[data-testid="stElementContainer"]:has(style) {display: none;}  /* CSS だけの要素の余白を消す */
-.logo {display: flex; align-items: center; gap: .6rem; text-decoration: none;}
-.logo .name {font-size: 1.12rem; font-weight: 700; color: var(--alps); letter-spacing: .04em; line-height: 1.2;}
-.logo .sub {font-size: .68rem; color: var(--muted); letter-spacing: .06em;}
-[class*="st-key-gnav"] [data-testid="stPageLink"] a {padding: .35rem .2rem; border-radius: 0; justify-content: center;}
-[class*="st-key-gnav"] [data-testid="stPageLink"] p {font-size: .92rem; font-weight: 700; color: var(--ink);}
+[class*="st-key-bleed_header"] {background: #fff; padding-top: 1.05rem; padding-bottom: 1.05rem; border-bottom: 1px solid var(--line);
+                                margin-top: -16px;}
+.logo {display: flex; align-items: center; gap: .75rem; text-decoration: none;}
+.logo svg {width: 46px; height: 34px;}
+.logo .name {font-size: 1.28rem; font-weight: 700; color: var(--alps); letter-spacing: .05em; line-height: 1.25;}
+.logo .sub {font-size: .7rem; color: var(--muted); letter-spacing: .08em; margin-top: .1rem;}
+[data-testid="stPageLink"] a:hover, [data-testid="stPageLink"] a:focus {background: transparent !important;}
+[class*="st-key-gnav"] [data-testid="stPageLink"] a {padding: .55rem .15rem; border-radius: 0; background: transparent;}
+[class*="st-key-gnav"] [data-testid="stPageLink"] p {font-size: .98rem; font-weight: 700; color: var(--ink); transition: color .15s;}
+[class*="st-key-gnav"] [data-testid="stPageLink"] a:hover p {color: var(--sky);}
 [class*="st-key-gnav_on"] [data-testid="stPageLink"] a {box-shadow: inset 0 -3px 0 var(--apple);}
 [class*="st-key-gnav_on"] [data-testid="stPageLink"] p {color: var(--alps);}
-[class*="st-key-gnav"] [data-testid="stPageLink"] a:hover {background: #f3f1ea;}
-.upd {font-size: .7rem; color: var(--muted); text-align: right; line-height: 1.35;} .upd b {color: var(--ink); font-size: .8rem;}
+.upd {font-size: .72rem; color: var(--muted); text-align: right; line-height: 1.45;} .upd b {color: var(--ink); font-size: .84rem;}
 
 /* セクション内のタブ（県全体のテーマ） */
-[class*="st-key-bleed_lnav"] {background: #fbfaf6; border-bottom: 1px solid var(--line); padding-top: .25rem; padding-bottom: .25rem;}
-[class*="st-key-lnav"] [data-testid="stPageLink"] a {justify-content: center; padding: .3rem .1rem; border-radius: 999px;}
-[class*="st-key-lnav"] [data-testid="stPageLink"] p {font-size: .8rem; color: var(--muted); white-space: nowrap;}
-[class*="st-key-lnav_on"] [data-testid="stPageLink"] a {background: var(--alps);}
-[class*="st-key-lnav_on"] [data-testid="stPageLink"] p {color: #fff; font-weight: 700;}
-[class*="st-key-lnav_off"] [data-testid="stPageLink"] a:hover {background: #efece3;}
+[class*="st-key-bleed_lnav"] {background: #fff; border-bottom: 1px solid var(--line); padding-top: .15rem; padding-bottom: 0;
+                              margin-top: -1rem;}
+[class*="st-key-lnav"] [data-testid="stPageLink"] a {padding: .8rem .35rem .75rem; border-radius: 0; background: transparent;}
+[class*="st-key-lnav"] [data-testid="stPageLink"] p {font-size: .88rem; color: var(--muted); white-space: nowrap; transition: color .15s;}
+[class*="st-key-lnav"] [data-testid="stPageLink"] a:hover p {color: var(--alps);}
+[class*="st-key-lnav_on"] [data-testid="stPageLink"] a {box-shadow: inset 0 -3px 0 var(--forest);}
+[class*="st-key-lnav_on"] [data-testid="stPageLink"] p {color: var(--alps); font-weight: 700;}
 
 /* ヒーロー（扉ページ） */
-[class*="st-key-bleed_hero"] {background: linear-gradient(160deg, #183150 0%, #2c5282 55%, #3d6fa5 100%); color: #fff;
+[class*="st-key-bleed_hero"] {background: linear-gradient(160deg, #183150 0%, #2c5282 55%, #3d6fa5 100%); color: #fff; margin-top: -1rem;
                               padding-top: 2.4rem; padding-bottom: 0; overflow: hidden;}
 .hero {display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; position: relative; z-index: 1;}
 .hero .kicker {font-size: .78rem; letter-spacing: .22em; color: #cfe0f3; font-weight: 700;}
@@ -215,23 +218,21 @@ def _ridge(height: int, color: str, fill: str | None = None, cls: str = "ridge")
 def _header(here: str, sec: str | None) -> None:
     last = data.shukuhaku().index.max()
     with st.container(key="bleed_header"):
-        c1, c2, c3 = st.columns([2.3, 5.2, 1.1], vertical_alignment="center")
+        c1, c2, c3 = st.columns([2.2, 5.6, 1], vertical_alignment="center")
         with c1:
             st.markdown(f'<div class="logo">{LOGO}<div><div class="name">信州 観光データ</div>'
                         f'<div class="sub">長野県 観光分析ダッシュボード</div></div></div>', unsafe_allow_html=True)
-        with c2:
-            cols = st.columns(len(GNAV))
-            for c, (key, label, path) in zip(cols, GNAV):
+        with c2, st.container(horizontal=True, horizontal_alignment="center", vertical_alignment="center", gap="large"):
+            for key, label, path in GNAV:
                 on = (key == sec) or (path == here)
-                with c, st.container(key=f"gnav_{'on' if on else 'off'}_{key}"):
+                with st.container(key=f"gnav_{'on' if on else 'off'}_{key}", width="content"):
                     st.page_link(path, label=label)
         with c3:
             st.markdown(f'<div class="upd">データ更新<br><b>{last.year}年{last.month}月分</b></div>', unsafe_allow_html=True)
     if sec == "pref":
-        with st.container(key="bleed_lnav"):
-            cols = st.columns(len(LNAV))
-            for i, (c, (path, label)) in enumerate(zip(cols, LNAV)):
-                with c, st.container(key=f"lnav_{'on' if path == here else 'off'}_{i}"):
+        with st.container(key="bleed_lnav"), st.container(horizontal=True, gap="medium", vertical_alignment="bottom"):
+            for i, (path, label) in enumerate(LNAV):
+                with st.container(key=f"lnav_{'on' if path == here else 'off'}_{i}", width="content"):
                     st.page_link(path, label=label)
 
 
