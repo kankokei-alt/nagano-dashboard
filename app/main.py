@@ -31,4 +31,7 @@ pages = {
     "資料室": [st.Page("views/report.py", title="レポートを作る", icon=":material/description:"),
                st.Page("views/9_data.py", title="データと出典", icon=":material/database:")],
 }
-st.navigation(pages, position="top").run()
+from lib import ui  # noqa: E402
+
+st.navigation(pages, position="hidden").run()  # メニューは lib.ui のサイトヘッダーで出す
+ui.footer()

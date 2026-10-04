@@ -45,7 +45,9 @@ cols = st.columns(4)
 with cols[0]:
     ui.kpi(f"延べ宿泊者数（1〜{M}月）", man(ytd, "人泊"), f"前年同期 {man(ytd_ly, '人泊')}", ytd / ytd_ly - 1)
 with cols[1]:
-    ui.kpi(f"うち外国人（1〜{M}月）", man(fytd[last], "人泊"), f"前年同期 {man(fytd[ly], '人泊')}", fytd[last] / fytd[ly] - 1)
+    sh, sh_ly = fytd[last] / ytd, fytd[ly] / ytd_ly
+    ui.kpi(f"インバウンド割合（1〜{M}月）", f"{sh:.1%}", f"外国人 {man(fytd[last], '人泊')}／前年同期 {sh_ly:.1%}",
+           (sh - sh_ly) * 100, "pt")
 with cols[2]:
     ui.kpi(f"客室稼働率（1〜{M}月の平均）", f"{occ_ytd:.1f}%", f"前年同期 {occ_ytd_ly:.1f}%", occ_ytd - occ_ytd_ly, "pt")
 with cols[3]:

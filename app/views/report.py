@@ -135,12 +135,12 @@ def build_html(title: str, intro: str, items: list[dict], inline_js: bool) -> st
 body {{font-family: "BIZ UDPGothic","Hiragino Sans","Meiryo",sans-serif; color:#1d2733; background:#f6f5f1; margin:0;}}
 main {{max-width: 980px; margin: 0 auto; padding: 32px 24px 60px;}}
 header {{border-bottom: 2px solid #1d2733; padding-bottom: 14px; margin-bottom: 18px;}}
-header .k {{font-size: 12px; color:#1f5fa8; font-weight:700; letter-spacing:.08em;}}
+header .k {{font-size: 12px; color:#1e3a5f; font-weight:700; letter-spacing:.08em;}}
 header h1 {{font-size: 26px; margin: 4px 0 6px;}} header .m {{font-size: 12px; color:#5f6b7a;}}
 .intro {{background:#fff; border:1px solid #e4e2db; border-radius:12px; padding:14px 18px; line-height:1.8; white-space:pre-wrap;}}
-h2.pg {{font-size: 18px; margin: 28px 0 8px; color:#1f5fa8;}}
+h2.pg {{font-size: 18px; margin: 28px 0 8px; color:#1e3a5f;}}
 section, .insight {{background:#fff; border:1px solid #e4e2db; border-radius:14px; padding:18px 20px 12px; margin: 12px 0; break-inside: avoid;}}
-.insight {{background:#e9f0f8; border:none;}} .insight span, .ro span {{font-size:11px; font-weight:700; letter-spacing:.08em; color:#1f5fa8;}}
+.insight {{background:#eaf1f9; border:none;}} .insight span, .ro span {{font-size:11px; font-weight:700; letter-spacing:.08em; color:#1e3a5f;}}
 .insight p {{margin:.3em 0 0; line-height:1.8;}}
 h3 {{font-size: 16px; margin: 0;}} .desc {{font-size: 12px; color:#5f6b7a; margin-top:3px;}}
 .ro {{border-top:1px solid #e4e2db; margin-top:6px; padding-top:8px;}} .ro span {{color:#5f6b7a;}}

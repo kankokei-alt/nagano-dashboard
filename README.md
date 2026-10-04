@@ -36,7 +36,10 @@
 
 各グラフの下の「数値を見る・ダウンロード」から、そのグラフに描いた数字を表で見たり CSV で取り出したりできます（`lib.ui.fig_table`）。
 
-**デザイン**: 紙の色の背景に白いカード、書体は BIZ UDPゴシック。色は `app/lib/ui.py`（CSS）・`app/lib/charts.py`（グラフ）・`.streamlit/config.toml`（テーマ）でそろえています。
+**デザイン**: ウェブサイト型（サイトヘッダーのメニュー、県全体のテーマ別タブ、扉ページのヒーロー、前後のテーマへの案内、フッター）。
+Streamlit 標準のメニューは隠し（`st.navigation(position="hidden")`）、`lib.ui` の `setup`・`footer` で描いています。
+色は信州の色（アルプスの紺 #1e3a5f・空の青 #2f6db5・りんごの赤 #c8432f・高原の緑 #24936a）、あしらいは北アルプスの稜線。
+書体は BIZ UDPゴシック。色は `app/lib/ui.py`（CSS）・`app/lib/charts.py`（グラフ、色覚の多様性を検証済み）・`.streamlit/config.toml` でそろえています。
 
 ## 動かし方
 

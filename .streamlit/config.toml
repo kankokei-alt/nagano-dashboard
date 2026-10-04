@@ -1,10 +1,10 @@
 # 画面の見た目（app/lib/ui.py の CSS と同じ色）と、閲覧者に開発用メニューを見せない設定
 [theme]
 base = "light"
-primaryColor = "#1f5fa8"
-backgroundColor = "#f6f5f1"
+primaryColor = "#1e3a5f"
+backgroundColor = "#f7f6f1"
 secondaryBackgroundColor = "#ffffff"
-textColor = "#1d2733"
+textColor = "#1b2733"
 
 [client]
 toolbarMode = "viewer"

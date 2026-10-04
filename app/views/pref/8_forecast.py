@@ -77,7 +77,7 @@ with ui.card():
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=list(fc.ym) + list(fc.ym[::-1]), y=list(fc.hi) + list(fc.lo[::-1]), fill="toself",
-        fillcolor="rgba(42,120,214,.15)", line={"width": 0}, name="このくらいの幅に収まりそう", hoverinfo="skip",
+        fillcolor="rgba(47,109,181,.15)", line={"width": 0}, name="このくらいの幅に収まりそう", hoverinfo="skip",
     ))
     fig.add_trace(go.Scatter(
         x=fc.ym, y=fc.last_year, name="前年同月の実績", mode="lines",

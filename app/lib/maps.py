@@ -11,7 +11,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 NEUTRAL = "#d9d8d3"
-HIGHLIGHT = "#2a78d6"
+HIGHLIGHT = "#2f6db5"
 LINE = "#ffffff"
 OUTLINE = "#52514e"
 SEQ = ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"]  # 青の濃淡（少→多）
