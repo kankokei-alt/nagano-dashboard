@@ -3,13 +3,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, data, muni, ui
+from lib import charts, compare, data, muni, ui
 from lib.charts import man, updown, yen
 
 code = muni.current()
 NAME = muni.name(code)
-ui.setup(f"{NAME}でいくら使っている？", "観光地での消費額と、1人あたりの金額。増減が人数によるものか単価によるものかも見ます。", kicker="市町村")
+ui.setup(f"{NAME}でいくら使っている？", "県の調査対象の観光地での消費額と、1人あたりの金額。", kicker="市町村")
 code = muni.picker("spend")
+cmp = muni.compare_picker(code, "spend")
 
 a = muni.annual()
 mine = a[a.municipality_code == code].set_index("year")
@@ -25,7 +26,7 @@ pref_per = pref.spend / pref.total
 t = muni.table(ry)
 
 ui.insight(
-    f"{ry}年の{NAME}の観光地での消費額は <b>{yen(cur.spend)}</b>"
+    f"{ry}年の{NAME}の調査対象の観光地での消費額は <b>{yen(cur.spend)}</b>"
     + (f"（前年より{updown(cur.spend / mine.loc[ry - 1, 'spend'] - 1)}）" if ry - 1 in mine.index else "")
     + f"。1人あたりでは <b>{per[ry]:,.0f}円</b> で、県全体（{pref_per[ry]:,.0f}円）"
     + ("より高く" if per[ry] > pref_per[ry] * 1.03 else "より低く" if per[ry] < pref_per[ry] * 0.97 else "と同じくらいで")
@@ -34,7 +35,7 @@ ui.insight(
 
 # ---- 1. 推移 ----
 with ui.card():
-    ui.block("観光地での消費額と1人あたりの推移", "年ごと。1人あたりは県全体と比較")
+    ui.block("観光地での消費額と1人あたりの推移", "年ごと。調査対象の観光地の合計。1人あたりは県全体と比較")
     c1, c2 = st.columns(2)
     with c1:
         fig = go.Figure(go.Bar(x=mine.index, y=mine.spend / 1e8, marker_color=charts.MAIN,
@@ -56,6 +57,15 @@ with ui.card():
         f"{first}年から{ry}年にかけて、消費額は {cur.spend / mine.loc[first, 'spend']:.2f} 倍、1人あたりは {per[ry] / per[first]:.2f} 倍になりました。",
         f"1人あたりがいちばん高かったのは {per.idxmax()}年（{per.max():,.0f}円）です。",
     ], source="長野県「観光地利用者統計調査」（観光地消費額）")
+
+# ---- 比べる ----
+with ui.card():
+    ui.block("比べる：1人あたりの消費額", f"{ry}年。調査対象の観光地での消費額÷延べ利用者数")
+    pv = t.per_visit.where(t.spend > 0)
+    ui.chart(compare.bars(cmp, pv, pref_per[ry], fmt=lambda x: f"{x:,.0f}円", pref_label="県全体"))
+    compare.hint(cmp)
+    ui.readout(compare.readout(cmp, pv, pref_per[ry], "1人あたりの消費額", fmt=lambda x: f"{x:,.0f}円", pref_label="県全体"),
+               source=f"長野県「観光地利用者統計調査」（{ry}年）")
 
 # ---- 2. 増減の内訳 ----
 if ry - 1 in mine.index:
@@ -101,7 +111,7 @@ if len(s):
         fig.update_yaxes(showgrid=False)
         ui.chart(fig)
         ui.readout([
-            f"消費額がいちばん多いのは **{b.spend.idxmax()}**（{yen(b.spend.max())}、市町村全体の {b.spend.max() / b.spend.sum():.0%}）です。",
+            f"消費額がいちばん多いのは **{b.spend.idxmax()}**（{yen(b.spend.max())}、調査対象の観光地の合計の {b.spend.max() / b.spend.sum():.0%}）です。",
             f"1人あたりがいちばん高いのは **{b.per.idxmax()}**（{b.per.max():,.0f}円）、低いのは **{b.per.idxmin()}**（{b.per.min():,.0f}円）です。",
         ], source=f"長野県「観光地利用者統計調査」（{ry}年）")
 

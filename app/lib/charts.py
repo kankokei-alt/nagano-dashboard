@@ -66,3 +66,9 @@ def spread(values: dict[str, float], gap: float) -> dict[str, float]:
         out[k], prev = y, y
     shift = (sum(out.values()) - sum(values.values())) / max(len(out), 1)  # 全体の中心を元に近づける
     return {k: y - shift for k, y in out.items()}
+
+
+def signed(x: float, digits: int = 0) -> str:
+    """「+5%」「-3%」。四捨五入で0になるときは「±0%」（「-0%」と出さない）。"""
+    s = f"{x:+.{digits}%}"
+    return "±" + s[1:] if float(s[1:-1]) == 0 else s

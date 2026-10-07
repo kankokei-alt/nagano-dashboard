@@ -51,6 +51,7 @@ def municipality_map(
     values: dict[str, float] | None = None,
     value_label: str = "",
     fmt=lambda v: f"{v:,.0f}",
+    missing: str = "データなし",
 ) -> go.Figure:
     """市町村を塗り分ける地図。
 
@@ -66,7 +67,7 @@ def municipality_map(
         if values is not None:
             v = values.get(r.code)
             fill = NEUTRAL if v is None else SEQ[sum(v >= b for b in bins[1:-1])]
-            text += f"<br>{value_label} {fmt(v) if v is not None else '調査対象の観光地なし'}"
+            text += f"<br>{value_label} {fmt(v) if v is not None else missing}"
         else:
             fill = HIGHLIGHT if r.code in highlight else NEUTRAL
             text += f"<br>面積 {r.area_km2:,.1f} km²"

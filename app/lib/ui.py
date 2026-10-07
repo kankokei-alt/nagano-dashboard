@@ -141,6 +141,19 @@ a {color: var(--sky);}
                          padding: .7rem 1.1rem .5rem; margin: .2rem 0 .4rem;}
 .mmeta {font-size: .9rem; color: var(--muted); padding-top: .9rem;} .mmeta b {font-size: 1.15rem; color: var(--alps); margin-right: .3rem;}
 
+/* 比べる欄 */
+[class*="st-key-cmpbar"] {background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--forest); border-radius: 14px;
+                          padding: .55rem 1.1rem .35rem; margin: 0 0 .6rem;}
+[class*="st-key-cmpbar"] [data-testid="stExpander"] details {border: none; background: transparent;}
+[class*="st-key-cmpbar"] [data-testid="stExpander"] summary {padding-left: 0; color: var(--sky); font-weight: 700;}
+[class*="st-key-cmpbar"] [data-testid="stCheckbox"] {margin-right: .6rem;}
+.cmplabel {font-weight: 700; color: var(--forest); letter-spacing: .1em; font-size: .95rem;}
+.chips {display: flex; flex-wrap: wrap; gap: .4rem; min-height: 1.6rem; align-items: center;}
+.chip {border: 2px solid var(--c); color: var(--ink); border-radius: 999px; padding: .1rem .7rem; font-size: .85rem; font-weight: 700;
+       background: color-mix(in srgb, var(--c) 10%, white);}
+.chips .hint {font-size: .85rem; color: var(--muted);}
+.cmpk {font-size: .78rem; font-weight: 700; color: var(--muted); margin: .5rem 0 .1rem; letter-spacing: .08em;}
+
 /* 前後のテーマ */
 [class*="st-key-pager"] [data-testid="stPageLink"] a {background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: .8rem 1rem;}
 [class*="st-key-pager"] [data-testid="stPageLink"] p {font-weight: 700; color: var(--alps);}
@@ -189,7 +202,8 @@ def _cap():
 # 出典の文字から、元データのページへのリンクを引く
 SOURCE_LINKS = [("宿泊旅行統計", "shukuhaku"), ("観光入込客統計", "irikomi"), ("観光地利用者統計", "riyousha"),
                 ("JNTO", "jnto"), ("訪日外客統計", "jnto"), ("気象庁", "weather"), ("消費者物価指数", "macro"),
-                ("景気ウォッチャー", "macro"), ("国民の祝日", "holidays"), ("国土数値情報", "boundaries")]
+                ("景気ウォッチャー", "macro"), ("国民の祝日", "holidays"), ("国土数値情報", "boundaries"),
+                ("デジタル観光統計", "digital"), ("国勢調査", "population")]
 
 
 def _md(text: str) -> str:
@@ -199,7 +213,7 @@ def _md(text: str) -> str:
 
 # サイトの構成（ヘッダーのメニュー・セクション内のタブ・前後のテーマ）
 GNAV = [("pref", "長野県全体", "views/pref/0_top.py"), ("muni", "市町村", "views/muni/0_top.py"),
-        ("kouiki", "広域連携", "views/3_kouiki.py"), ("report", "レポートを作る", "views/report.py"),
+        ("kouiki", "広域連携", "views/kouiki/0_top.py"), ("report", "レポートを作る", "views/report.py"),
         ("data", "データと出典", "views/9_data.py")]
 LNAV = [("views/pref/0_top.py", "全体像"), ("views/pref/1_visitors.py", "誰が来ている"),
         ("views/pref/2_inbound.py", "海外から"), ("views/pref/3_season.py", "季節"),
@@ -208,9 +222,12 @@ LNAV = [("views/pref/0_top.py", "全体像"), ("views/pref/1_visitors.py", "誰�
         ("views/pref/8_forecast.py", "これから")]
 LNAV_MUNI = [("views/muni/0_top.py", "全体像"), ("views/muni/1_visitors.py", "誰が来ている"),
              ("views/muni/2_season.py", "季節"), ("views/muni/3_spots.py", "観光地"),
-             ("views/muni/4_spend.py", "消費"), ("views/muni/5_area.py", "エリア・宿泊・気象"),
+             ("views/muni/4_spend.py", "消費"), ("views/muni/5_area.py", "宿泊・気象"),
              ("views/muni/6_compare.py", "他の市町村と比べる")]
-TABS = {"pref": LNAV, "muni": LNAV_MUNI}
+LNAV_KOUIKI = [("views/kouiki/0_top.py", "全体像"), ("views/kouiki/1_members.py", "市町村の役割"),
+               ("views/kouiki/2_season.py", "季節"), ("views/kouiki/3_spots.py", "観光地"),
+               ("views/kouiki/4_stay.py", "宿泊・気象"), ("views/kouiki/5_compare.py", "他の広域と比べる")]
+TABS = {"pref": LNAV, "muni": LNAV_MUNI, "kouiki": LNAV_KOUIKI}
 SECTION = {"長野県全体": "pref", "市町村": "muni", "広域連携": "kouiki", "資料室": None}
 
 

@@ -2,13 +2,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, data, muni, ui
+from lib import charts, compare, data, muni, ui
 from lib.charts import man, updown
 
 code = muni.current()
 NAME = muni.name(code)
-ui.setup(f"{NAME}の観光地", "どの観光地に人が集まり、伸びているか。観光地ごとの推移も見られます。", kicker="市町村")
+ui.setup(f"{NAME}の観光地", "県の調査対象の観光地のうち、どこに人が集まり、伸びているか。", kicker="市町村")
 code = muni.picker("spots")
+cmp = muni.compare_picker(code, "spots")
 
 sp = data.riyousha_spots()
 mine = sp[sp.municipality_code == code]
@@ -23,7 +24,7 @@ cur = cur.assign(yoy=cur.total / prv.reindex(cur.index) - 1, vs19=cur.total / y1
 top = cur.sort_values("total", ascending=False)
 
 ui.insight(
-    f"{ry}年、{NAME}の調査対象の観光地は {len(cur)} か所。いちばん多いのは <b>{top.index[0]}</b>（{man(top.total.iloc[0])}、市町村全体の {top.total.iloc[0] / cur.total.sum():.0%}）"
+    f"{ry}年、{NAME}の調査対象の観光地は {len(cur)} か所。いちばん多いのは <b>{top.index[0]}</b>（延べ {man(top.total.iloc[0])}、調査対象の観光地の合計の {top.total.iloc[0] / cur.total.sum():.0%}）"
     + (f"、次いで {top.index[1]}（{man(top.total.iloc[1])}）" if len(top) > 1 else "") + "です。"
 )
 
@@ -43,7 +44,7 @@ with ui.card():
     ui.chart(fig)
     g = cur.dropna(subset=["yoy"])
     ui.readout([
-        f"上位3か所で市町村全体の {top.total.iloc[:3].sum() / cur.total.sum():.0%} を占めます。" if len(top) >= 3 else "",
+        f"上位3か所で、調査対象の観光地の合計の {top.total.iloc[:3].sum() / cur.total.sum():.0%} を占めます。" if len(top) >= 3 else "",
         (f"前年からの伸びが大きいのは **{g.yoy.idxmax()}**（{g.yoy.max():+.0%}）"
          + (f"、減少が大きいのは **{g.yoy.idxmin()}**（{g.yoy.min():+.0%}）です。" if g.yoy.min() < 0 else "で、どの観光地も前年を上回りました。")
          if len(g) >= 2 else ""),
@@ -100,6 +101,20 @@ if len(g19) >= 2:
             f"いちばん伸びたのは **{g19.index[-1]}**（{g19.vs19.iloc[-1]:+.0%}）"
             + (f"、いちばん減ったのは **{g19.index[0]}**（{g19.vs19.iloc[0]:+.0%}）です。" if g19.vs19.iloc[0] < 0 else "です。"),
         ], source="長野県「観光地利用者統計調査」")
+
+# ---- 比べる ----
+with ui.card():
+    ui.block("比べる：観光地の利用者のコロナ前からの回復", f"{ry}年の延べ利用者数の2019年比。両方の年にある観光地だけで計算")
+    both = sp[sp.year.isin([2019, ry])].pivot_table(index=["municipality_code", "spot"], columns="year", values="total", aggfunc="sum").dropna()
+    both = both[both[2019] > 0]
+    gm = both.groupby(level=0).sum()
+    rec = gm[ry] / gm[2019] - 1
+    rec_p = both[ry].sum() / both[2019].sum() - 1
+    ui.chart(compare.bars(cmp, rec, rec_p, fmt=charts.signed, tickformat="+.0%", pref_label="県全体"))
+    compare.hint(cmp)
+    ui.readout(compare.readout(cmp, rec, rec_p, "2019年比", fmt=charts.signed, higher="大きい", lower="小さい", pref_label="県全体")
+               + ["観光地が追加・廃止された影響を除くため、2019年と同じ観光地だけを比べています。"],
+               source=f"長野県「観光地利用者統計調査」（2019年・{ry}年）")
 
 # ---- 4. 種類 ----
 with ui.card():

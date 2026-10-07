@@ -1,13 +1,14 @@
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, data, muni, ui
+from lib import charts, compare, data, muni, ui
 from lib.charts import man, updown
 
 code = muni.current()
 NAME = muni.name(code)
-ui.setup(f"{NAME}に誰が来ている？", "県内の人か県外の人か、日帰りか泊まりか。県全体と比べて特徴を見ます。", kicker="市町村")
+ui.setup(f"{NAME}に誰が来ている？", "県内の人か県外の人か、日帰りか泊まりか。県の調査対象の観光地での割合です。", kicker="市町村")
 code = muni.picker("visitors")
+cmp = muni.compare_picker(code, "visitors")
 
 a = muni.annual()
 mine = a[a.municipality_code == code].set_index("year")
@@ -29,7 +30,7 @@ def share(d, a_, b_):
 kg, kg_p = share(cur, "kennai", "kengai"), share(pref.loc[ry], "kennai", "kengai")
 sh, sh_p = share(cur, "higaeri", "shukuhaku"), share(pref.loc[ry], "higaeri", "shukuhaku")
 ui.insight(
-    f"{ry}年に{NAME}の観光地を訪れた人のうち、<b>県外の人は{kg:.0%}</b>（県全体 {kg_p:.0%}）、"
+    f"{ry}年に{NAME}の県の調査対象の観光地（{int(cur.spots)}か所）を訪れた人のうち、<b>県外の人は{kg:.0%}</b>（県全体 {kg_p:.0%}）、"
     f"<b>泊まりの人は{sh:.0%}</b>（県全体 {sh_p:.0%}）でした。"
     + ("県全体より県外の人が多く、" if kg > kg_p + 0.02 else "県全体より県内の人が多く、" if kg < kg_p - 0.02 else "県外の人の割合は県全体と同じくらいで、")
     + ("泊まりの割合も高い観光地です。" if sh > sh_p + 0.02 else "日帰りが中心です。" if sh < sh_p - 0.02 else "泊まりの割合も県全体並みです。")
@@ -53,8 +54,20 @@ with ui.card():
     ui.chart(fig)
     ui.readout([
         f"県外の人の割合は県内 {muni.rank(t, 'kengai', code)}、泊まりの人の割合は {muni.rank(t, 'shuku', code)} です。",
-        f"延べ人数にすると、県外の人 {man(cur.kengai)}・県内の人 {man(cur.kennai)}、泊まり {man(cur.shukuhaku)}・日帰り {man(cur.higaeri)} です。",
     ], source=f"長野県「観光地利用者統計調査」（{ry}年）")
+
+# ---- 比べる ----
+with ui.card():
+    ui.block("比べる：県外の人・泊まりの人の割合", f"{ry}年。選んだ市町村と県全体")
+    c1, c2 = st.columns(2)
+    with c1:
+        ui.chart(compare.bars(cmp, t.kengai, kg_p, fmt=lambda x: f"{x:.0%}", title="県外の人の割合", pref_label="県全体", tickformat=".0%"))
+    with c2:
+        ui.chart(compare.bars(cmp, t.shuku, sh_p, fmt=lambda x: f"{x:.0%}", title="泊まりの人の割合", pref_label="県全体", tickformat=".0%"))
+    compare.hint(cmp)
+    ui.readout(compare.readout(cmp, t.kengai, kg_p, "県外の人の割合", fmt=lambda x: f"{x:.0%}", pref_label="県全体")
+               + compare.readout(cmp, t.shuku, sh_p, "泊まりの人の割合", fmt=lambda x: f"{x:.0%}", pref_label="県全体"),
+               source=f"長野県「観光地利用者統計調査」（{ry}年、各市町村の調査対象の観光地での割合）")
 
 # ---- 2. 推移 ----
 with ui.card():

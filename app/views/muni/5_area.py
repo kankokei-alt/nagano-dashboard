@@ -2,45 +2,20 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, data, maps, muni, ui
+from lib import charts, compare, data, muni, ui
 from lib.charts import man, updown
 
 code = muni.current()
 NAME = muni.name(code)
-ui.setup(f"{NAME}のエリア・宿泊・気象", "市町村の中のエリア、宿泊（県内5エリア）の動き、近くの気象観測所の気温と雪。", kicker="市町村")
+ui.setup(f"{NAME}の宿泊・気象", "宿泊（県内5エリア）の動きと、近くの気象観測所の気温と雪。", kicker="市町村")
 code = muni.picker("area")
+cmp = muni.compare_picker(code, "area")
 m = muni.master().loc[code]
 
 ui.insight(
     f"{NAME}は{m.chiiki}地域・{m.kouiki}広域に属し、観光庁の宿泊統計では <b>{m.area5}</b>エリアに入ります。"
     if isinstance(m.area5, str) else f"{NAME}は{m.chiiki}地域・{m.kouiki}広域に属します。"
 )
-
-# ---- 1. 市町村内のエリア ----
-with ui.card():
-    areas = data.sub_areas()
-    areas = areas[areas.municipality_code == code]
-    ui.block("市町村の中のエリア", "合併前の町村や観光の中心地ごとの区分")
-    c1, c2 = st.columns([3, 2])
-    with c1:
-        g = data.municipalities()
-        st.plotly_chart(maps.municipality_map(g, highlight={code}, focus=g[g.code == code], height=420),
-                        use_container_width=True, config={"displaylogo": False})
-    with c2:
-        if areas.empty:
-            st.markdown("この市町村のエリア分けは、まだ定義していません（`config/sub_areas.csv` に追加できます）。")
-        else:
-            for r in areas.itertuples():
-                st.markdown(f"- **{r.area_name}** … {r.definition}")
-        sp = data.riyousha_spots()
-        ry = int(sp.year.max())
-        mine = sp[(sp.municipality_code == code) & (sp.year == ry)]
-        if len(mine):
-            st.markdown(f"**調査対象の観光地（{ry}年）**")
-            st.markdown("、".join(mine.sort_values("total", ascending=False).spot))
-    ui.readout([
-        "エリアの境界は、国勢調査の小地域（町丁・字）を組み合わせて正確に作る予定です。エリア別の人数は、デジタル観光統計などの人流データを取り込んだあとに表示します。",
-    ], source=f"国土数値情報（行政区域）。{maps.ATTRIBUTION}")
 
 # ---- 2. 宿泊（5エリア） ----
 if isinstance(m.area5, str):
@@ -122,4 +97,36 @@ if st_row is not None:
             pts.append(f"最も新しい冬（{s.index[-1] - 1}〜{s.index[-1] % 100:02d}年）の最深積雪は {s.iloc[-1]:.0f}cm で、それまでの平均（{s.iloc[:-1].mean():.0f}cm）の {s.iloc[-1] / s.iloc[:-1].mean():.0%} でした。")
         ui.readout(pts, source="気象庁「過去の気象データ」。年ごとの値が資料不足の冬は表示していません")
 
-ui.sources(["riyousha", "shukuhaku", "weather", "boundaries"])
+
+# ---- 比べる ----
+def station_of(c):
+    mm = muni.master().loc[c]
+    h = stn[stn.municipality_code == c]
+    if len(h):
+        return h.iloc[0].station
+    k = stn[stn.kouiki == mm.kouiki]
+    return k.iloc[0].station if len(k) else None
+
+
+wx = data.weather()
+wx = wx.assign(season=wx.ym.dt.year + (wx.ym.dt.month >= 8))
+last = int(wx[wx.ym.dt.month == 3].ym.dt.year.max())  # 3月まで観測がそろった最新の冬
+win = wx[wx.season == last].groupby("station").snow_depth_max.max()
+avg = wx[(wx.season < last)].groupby(["station", "season"]).snow_depth_max.max().groupby(level=0).mean()
+codes = [c for c in cmp.all if station_of(c) is not None]
+if codes:
+    with ui.card():
+        ui.block("比べる：冬の雪", f"{last - 1}〜{last % 100:02d}年の冬の最深積雪（最寄りの気象観測所）")
+        vals = pd.Series({c: win.get(station_of(c)) for c in codes})
+        sub = cmp.__class__(me=cmp.me, me_name=cmp.me_name, codes=[c for c in cmp.codes if c in codes],
+                            names={c: f"{cmp.label(c)}（{station_of(c)}）" for c in codes}, pref=False)
+        ui.chart(compare.bars(sub, vals, fmt=lambda x: f"{x:.0f}cm"))
+        compare.hint(cmp)
+        ui.readout([
+            "それぞれの平年（観測開始〜前の冬の平均）との比: "
+            + "、".join(f"{sub.label(c)} {vals[c] / avg[station_of(c)]:.0%}" for c in codes
+                       if pd.notna(vals[c]) and avg.get(station_of(c), 0) > 0) + "。",
+            "同じ観測所を使う市町村は同じ値です（観測所は各広域に1つ以上）。",
+        ], source="気象庁「過去の気象データ」")
+
+ui.sources(["shukuhaku", "weather"])
