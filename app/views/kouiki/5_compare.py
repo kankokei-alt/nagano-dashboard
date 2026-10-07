@@ -10,6 +10,7 @@ ui.setup(f"{kouiki.label(k)}を他の広域と比べる", "10広域の中での�
 k, mem = kouiki.picker("compare")
 LABEL = kouiki.label(k)
 
+muni.require_digital()
 # 比べる単位は広域。自由に組んだ圏域も「選んだ圏域」として並べる
 kt = kouiki.table()
 me = k if k != kouiki.CUSTOM else "_custom"

@@ -10,6 +10,7 @@ ui.setup(f"{kouiki.label(k)}の市町村の役割", "圏域の中で、人が集
 k, mem = kouiki.picker("members")
 LABEL = kouiki.label(k)
 
+muni.require_digital()
 t = muni.vtable()
 ly, Y, M = t.attrs["year"], t.attrs["Y"], t.attrs["M"]
 mt = t.reindex(mem).dropna(subset=["visitors"])

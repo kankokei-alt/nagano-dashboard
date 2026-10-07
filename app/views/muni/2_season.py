@@ -11,6 +11,7 @@ ui.setup(f"{NAME}はいつ来ている？", "月ごとの波と、その形が�
 code = muni.picker("season")
 cmp = muni.compare_picker(code, "season")
 
+muni.require_digital()
 v = muni.visitors()
 if code not in v:
     st.info(f"{NAME}は、デジタル観光統計オープンデータに観光来訪者数がありません。")

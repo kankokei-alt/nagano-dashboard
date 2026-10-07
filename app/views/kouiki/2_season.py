@@ -10,6 +10,7 @@ ui.setup(f"{kouiki.label(k)}の季節のかぶり・すき間", "市町村ごと
 k, mem = kouiki.picker("season")
 LABEL = kouiki.label(k)
 
+muni.require_digital()
 v = muni.visitors()
 mem = [c for c in mem if c in v]
 if not mem:

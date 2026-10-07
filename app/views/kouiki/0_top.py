@@ -13,6 +13,7 @@ if len(mem) < 1:
     st.info("市町村を選んでください。")
     st.stop()
 
+muni.require_digital()
 t = muni.vtable()
 ly, Y, M = t.attrs["year"], t.attrs["Y"], t.attrs["M"]
 mt = t.reindex(mem).dropna(subset=["visitors"])

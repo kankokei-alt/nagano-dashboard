@@ -39,6 +39,18 @@ def annual() -> pd.DataFrame:
     return out.reset_index()
 
 
+DIGITAL = data.PROCESSED / "digital_city.parquet"
+
+
+def require_digital() -> None:
+    """デジタル観光統計がまだ取り込まれていないときは、案内を出してページを止める。"""
+    if not DIGITAL.exists() or not (data.PROCESSED / "digital_pref.parquet").exists():
+        st.info("このページは、日本観光振興協会「デジタル観光統計オープンデータ」（市町村ごとの観光来訪者数）を使います。"
+                "いまデータを取り込む準備をしているところです。取り込みが終わると表示されます。")
+        st.page_link("views/9_data.py", label="使っている統計の一覧を見る →")
+        st.stop()
+
+
 @st.cache_data
 def visitors() -> pd.DataFrame:
     """デジタル観光統計: 月×市町村の観光来訪者数（index=月初の日付、列=市町村コード）。"""

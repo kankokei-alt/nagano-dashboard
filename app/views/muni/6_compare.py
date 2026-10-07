@@ -12,6 +12,7 @@ ui.setup(f"{NAME}を他の市町村と比べる", "県内の順位、選んだ�
 code = muni.picker("compare")
 cmp = muni.compare_picker(code, "compare")
 
+muni.require_digital()
 t = muni.vtable()
 if code not in t.index:
     st.info(f"{NAME}は、デジタル観光統計オープンデータに観光来訪者数がありません。")

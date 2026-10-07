@@ -11,6 +11,7 @@ ui.setup(f"{NAME}の全体像", "観光で訪れた人の数と、その動き�
 code = muni.picker("top")
 cmp = muni.compare_picker(code, "top")
 
+muni.require_digital()
 v = muni.visitors()
 if code not in v:
     st.info(f"{NAME}は、デジタル観光統計オープンデータに観光来訪者数がありません。")
