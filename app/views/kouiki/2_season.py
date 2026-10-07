@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, kouiki, muni, ui
+from lib import charts, compare, kouiki, muni, ui
 from lib.charts import man
 
 k = kouiki.current()
@@ -26,8 +26,12 @@ km = cur.sum(axis=1)
 pref = v[v.index.year == ry].sum(axis=1)
 pref.index = pref.index.month
 ksh, psh = km / km.sum(), pref / pref.sum()
-hm = cur.div(cur.sum(), axis=1).T
-hm = hm.loc[cur.sum().sort_values(ascending=False).index]
+full = cur.columns[cur.notna().sum() == 12]  # 12か月とも公表されている市町村
+hm = cur[full].div(cur[full].sum(), axis=1).T
+hm = hm.loc[cur[full].sum().sort_values(ascending=False).index]
+if hm.empty:
+    st.info(f"{LABEL}の市町村は、{ry}年に人数が公表されていない月があるため、季節の形を比べられません。")
+    st.stop()
 peaks = hm.idxmax(axis=1)
 pmode = peaks.mode().iloc[0]
 
@@ -51,7 +55,7 @@ with ui.card():
     ui.readout([
         "それぞれのピーク: " + "、".join(f"{names[c]} {m}月" for c, m in peaks.items()) + "。",
         (f"ピークが違う市町村（{'・'.join(names[c] for c in diff_peak.index)}）があり、時期をずらした周遊の組み合わせが考えられます。"
-         if len(diff_peak) else "どの市町村も同じ月にピークを迎えます。少ない月をどう埋めるかが共通の課題です。") if len(hm) > 1 else "",
+         if len(diff_peak) else "どの市町村も同じ月にピークを迎えます。") if len(hm) > 1 else "",
     ], source=f"日本観光振興協会「デジタル観光統計オープンデータ」を加工して作成（{ry}年）")
 
 with ui.card():
@@ -71,25 +75,23 @@ with ui.card():
     ], source=f"日本観光振興協会「デジタル観光統計オープンデータ」を加工して作成（{ry}年。{kouiki.SUM_NOTE}）")
 
 with ui.card():
-    ui.block("月別の観光来訪者数", "圏域の市町村の合計。年ごと")
-    kk = v[mem].sum(axis=1)
-    Y = kk.index.max().year
-    fig = go.Figure()
-    for yy in sorted(set(kk.index.year)):
-        r = kk[kk.index.year == yy]
-        color = charts.MAIN if yy == Y else charts.SECOND if yy == Y - 1 else charts.CONTEXT
-        fig.add_trace(go.Scatter(x=[f"{m}月" for m in r.index.month], y=r.values / 1e4, name=f"{yy}年", mode="lines+markers",
-                                 line={"color": color, "width": 3.5 if yy == Y else 2 if yy == Y - 1 else 1.3},
-                                 opacity=1 if yy >= Y - 1 else .7, hovertemplate=f"{yy}年 %{{x}} %{{y:,.1f}}万人<extra></extra>"))
-    charts.layout(fig, height=340, hovermode="x unified")
+    ui.block("月別の観光来訪者数", f"{ry}年。圏域の市町村の合計。点線は県平均（10広域の平均）")
+    tenm = pd.DataFrame({kk: v[[c for c in kouiki.members(kk) if c in v]].sum(axis=1) for kk in kouiki.names()})
+    tavg = tenm[tenm.index.year == ry].mean(axis=1)
+    fig = go.Figure(go.Bar(x=MON, y=km.reindex(range(1, 13)).values / 1e4, name=LABEL, marker_color=charts.MAIN,
+                           hovertemplate=f"{LABEL} %{{x}} %{{y:,.1f}}万人<extra></extra>"))
+    fig.add_trace(go.Scatter(x=MON, y=tavg.values / 1e4, name="県平均（10広域の平均）", mode="lines+markers",
+                             line={"color": compare.PREF_COLOR, "dash": "dot", "width": 2},
+                             hovertemplate="県平均 %{x} %{y:,.1f}万人<extra></extra>"))
+    charts.layout(fig, height=330, bargap=0.25)
     fig.update_yaxes(title="万人", rangemode="tozero")
     ui.chart(fig)
-    r = kk[kk.index.year == Y]
-    prev = kk.reindex(r.index - pd.DateOffset(years=1)).values
-    dd = pd.Series(r.values / prev - 1, index=r.index.month)
+    r = (km / tavg.set_axis(range(1, 13))).dropna()
     ui.readout([
-        f"{Y}年に前年を上回った月: {'・'.join(f'{m}月' for m in dd[dd > 0].index) or 'なし'}。",
-        f"{ry}年の最多は {km.idxmax()}月（{man(km.max())}）です。",
+        f"{ry}年の最多は {km.idxmax()}月（{man(km.max())}）、最少は {km.idxmin()}月（{man(km.min())}）です。",
+        (f"どの月も県平均（10広域の平均）を上回っています（{r.min():.1f}〜{r.max():.1f} 倍）。" if r.min() >= 1 else
+         f"どの月も県平均（10広域の平均）を下回っています（{r.min():.0%}〜{r.max():.0%}）。" if r.max() < 1 else
+         f"県平均（10広域の平均）を上回った月: {'・'.join(f'{m}月' for m in r[r >= 1].index)}。"),
     ], source="日本観光振興協会「デジタル観光統計オープンデータ」を加工して作成")
 
 ui.sources(["digital"])

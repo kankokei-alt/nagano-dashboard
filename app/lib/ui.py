@@ -93,7 +93,7 @@ a {color: var(--sky);}
 
 /* グループ見出し（例: 2026年の状況 / 2025年の実績） */
 .group {display: flex; align-items: baseline; gap: .8rem; margin: 1.9rem 0 .7rem; padding-bottom: .4rem; border-bottom: 1px solid var(--line);}
-.group h2 {font-size: 1.22rem !important; font-weight: 700; margin: 0; padding: 0 !important; color: var(--alps);}
+.group h2 {font-size: 1.22rem !important; font-weight: 700; margin: 0; padding: 0 !important; color: var(--alps); white-space: nowrap; flex-shrink: 0;}
 .group h2::before {content: ""; display: inline-block; width: 14px; height: 10px; margin-right: .5rem; vertical-align: 1px;
                    background: var(--apple); clip-path: polygon(50% 0, 100% 100%, 0 100%);}
 .group span {font-size: .82rem; color: var(--muted);}
@@ -141,17 +141,7 @@ a {color: var(--sky);}
                          padding: .7rem 1.1rem .5rem; margin: .2rem 0 .4rem;}
 .mmeta {font-size: .9rem; color: var(--muted); padding-top: .9rem;} .mmeta b {font-size: 1.15rem; color: var(--alps); margin-right: .3rem;}
 
-/* 比べる欄 */
-[class*="st-key-cmpbar"] {background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--forest); border-radius: 14px;
-                          padding: .55rem 1.1rem .35rem; margin: 0 0 .6rem;}
-[class*="st-key-cmpbar"] [data-testid="stExpander"] details {border: none; background: transparent;}
-[class*="st-key-cmpbar"] [data-testid="stExpander"] summary {padding-left: 0; color: var(--sky); font-weight: 700;}
-[class*="st-key-cmpbar"] [data-testid="stCheckbox"] {margin-right: .6rem;}
-.cmplabel {font-weight: 700; color: var(--forest); letter-spacing: .1em; font-size: .95rem;}
-.chips {display: flex; flex-wrap: wrap; gap: .4rem; min-height: 1.6rem; align-items: center;}
-.chip {border: 2px solid var(--c); color: var(--ink); border-radius: 999px; padding: .1rem .7rem; font-size: .85rem; font-weight: 700;
-       background: color-mix(in srgb, var(--c) 10%, white);}
-.chips .hint {font-size: .85rem; color: var(--muted);}
+/* 市町村のチェックボックス（広域連携の「自由に組む」） */
 .cmpk {font-size: .78rem; font-weight: 700; color: var(--muted); margin: .5rem 0 .1rem; letter-spacing: .08em;}
 
 /* 前後のテーマ */

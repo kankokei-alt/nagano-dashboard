@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, data, kouiki, muni, ui
+from lib import charts, data, kouiki, ui
 from lib.charts import man
 
 k = kouiki.current()

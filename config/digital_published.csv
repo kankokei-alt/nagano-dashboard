@@ -1,0 +1,35 @@
+# 日本観光振興協会のニュースリリースに載っている「観光来訪者数（都道府県来訪者数の全国計・延べ人数、百万人）」。
+# 月ごとに、いちばん新しいリリースの値（2025年分は2026年の再集計後の値）。pipelines/digital.py の照合に使う。
+ym,national_million,release_date,url
+2024-01,113.8,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-02,108.0,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-03,127.7,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-04,132.9,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-05,146.5,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-06,120.9,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-07,126.3,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-08,151.3,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-09,130.2,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-10,136.3,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-11,143.6,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2024-12,125.1,2025-11-07,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2025/11/1762481300.pdf
+2025-01,134.1,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-02,118.8,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-03,148.1,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-04,150.5,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-05,167.0,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-06,135.5,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-07,142.8,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-08,181.0,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-09,147.6,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-10,155.0,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-11,172.3,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2025-12,143.6,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-01,141.5,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-02,128.6,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-03,158.0,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-04,152.7,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-05,189.9,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-06,134.9,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-07,153.5,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf
+2026-08,188.5,2026-09-11,https://www.nihon-kankou.or.jp/home/userfiles/files/autoupload/2026/09/1789110298.pdf

@@ -76,7 +76,28 @@ def table() -> pd.DataFrame:
     return pd.DataFrame({"name": [f"{k}広域" for k in ks], "kouiki": ["長野県の10広域"] * len(ks)}, index=ks)
 
 
-SUM_NOTE = "広域の人数は市町村の観光来訪者数の合計（同じ日に2つの市町村を訪れた人は2人と数える）"
+SUM_NOTE = "広域の人数は市町村の観光来訪者数の合計（同じ日に2つの市町村を訪れた人は2人と数える。人数が少なく公表されていない月は含まない）"
+
+
+def stats(codes: list) -> dict:
+    """圏域（市町村の合計）の数字。前年比は出せるときだけ。"""
+    P = muni.periods()
+    v = muni.visitors()
+    v = v[[c for c in codes if c in v]]
+    ly, Y, months = P["ly"], P["Y"], P["months"]
+
+    def tot(year, ms):
+        sub = v[(v.index.year == year) & v.index.month.isin(list(ms))]
+        return sub.sum().sum() if len(sub) == len(list(ms)) else float("nan")
+
+    year, now = tot(ly, range(1, 13)), tot(Y, months)
+    pop = muni.population().reindex(v.columns).sum()
+    return {
+        "visitors": year, "now": now, "per_resident": year / pop if pop else float("nan"),
+        "yoy": year / tot(ly - 1, range(1, 13)) - 1 if P["has_yoy"] else float("nan"),
+        "now_yoy": now / tot(Y - 1, months) - 1 if P["has_prev"] else float("nan"),
+        "n": v.shape[1],
+    }
 
 
 def monthly(codes: list) -> pd.Series:

@@ -65,47 +65,77 @@ def pref_visitors() -> pd.Series:
     return d[d.pref_code == 20].set_index("ym").visitors.sort_index()
 
 
-def latest() -> tuple[int, int]:
-    """いちばん新しい月の (年, 月)。"""
+def _span(months: list) -> str:
+    """[3,4,...,8] → 「3〜8月」。"""
+    if len(months) == 1:
+        return f"{months[0]}月"
+    if months == list(range(months[0], months[-1] + 1)):
+        return f"{months[0]}〜{months[-1]}月"
+    return "・".join(f"{m}月" for m in months)
+
+
+@st.cache_data
+def periods() -> dict:
+    """使える期間。照合で採用した月だけを使うので、年の途中が抜けることがある。
+
+    ly: 12か月そろった最新の年 / Y・months: いちばん新しい年と、その年の使える月 /
+    has_prev: Y年の同じ月が前の年にもそろっているか（前年比を出せるか） / has_yoy: ly の前年も12か月そろっているか
+    """
+    idx = visitors().index
+    n = pd.Series(idx.year).value_counts()
+    full = sorted(int(y) for y, c in n.items() if c == 12)
+    Y = int(idx.max().year)
+    months = [d.month for d in idx[idx.year == Y]]
+    return {
+        "full": full, "ly": full[-1] if full else None, "Y": Y, "months": months, "M": months[-1],
+        "label": f"{Y}年{_span(months)}", "span": _span(months),
+        "has_prev": all(pd.Timestamp(Y - 1, m, 1) in idx for m in months),
+        "has_yoy": bool(full) and full[-1] - 1 in full,
+    }
+
+
+def period_sum(year: int, months) -> pd.Series:
+    """その年の指定した月の合計（市町村ごと）。公表されていない月がある市町村は NaN。"""
     v = visitors()
-    return v.index.max().year, v.index.max().month
+    sub = v[(v.index.year == year) & (v.index.month.isin(list(months)))]
+    return sub.sum(min_count=len(sub)) if len(sub) == len(list(months)) else pd.Series(float("nan"), index=v.columns)
 
 
 @st.cache_data
 def yearly() -> pd.DataFrame:
-    """12か月そろった年の、年×市町村の観光来訪者数。"""
-    v = visitors()
-    g = v.groupby(v.index.year)
-    n = g.size()
-    return g.sum()[n == 12]
-
-
-@st.cache_data
-def ytd(year: int, month: int) -> pd.Series:
-    """その年の1〜month月の累計（市町村ごと）。"""
-    v = visitors()
-    return v[(v.index.year == year) & (v.index.month <= month)].sum()
+    """12か月そろった年の、年×市町村の観光来訪者数（公表されていない月がある市町村は NaN）。"""
+    return pd.DataFrame({y: period_sum(y, range(1, 13)) for y in periods()["full"]}).T
 
 
 @st.cache_data
 def vtable() -> pd.DataFrame:
-    """デジタル観光統計での比較表（index=市町村コード）。最新の年と、今年の1〜最新月。"""
+    """デジタル観光統計での比較表（index=77市町村のコード）。
+
+    visitors: 12か月そろった最新の年 / now: いちばん新しい年の使える月の合計 / yoy・now_yoy: 前年比（出せないときは NaN）
+    """
+    P = periods()
+    ly, Y, months = P["ly"], P["Y"], P["months"]
     y = yearly()
-    ly = int(y.index.max())
-    Y, M = latest()
-    pop = population()
+    tot = y.loc[ly]
+    nan = pd.Series(float("nan"), index=tot.index)
+    now = period_sum(Y, months)
     t = pd.DataFrame({
-        "visitors": y.loc[ly],
-        "yoy": y.loc[ly] / y.loc[ly - 1] - 1 if ly - 1 in y.index else float("nan"),
-        "ytd": ytd(Y, M),
-        "ytd_yoy": ytd(Y, M) / ytd(Y - 1, M) - 1,
-        "per_resident": y.loc[ly] / pop.reindex(y.columns),
-        "share": y.loc[ly] / y.loc[ly].sum(),
-    })
-    t["name"] = master().name.reindex(t.index)
-    t["kouiki"] = master().kouiki.reindex(t.index)
-    t.attrs.update(year=ly, Y=Y, M=M)
+        "visitors": tot,
+        "yoy": tot / y.loc[ly - 1] - 1 if P["has_yoy"] else nan,
+        "now": now,
+        "now_yoy": now / period_sum(Y - 1, months) - 1 if P["has_prev"] else nan,
+        "per_resident": tot / population().reindex(tot.index),
+        "share": tot / tot.sum(),
+    }).reindex(master().index)
+    t["name"] = master().name
+    t["kouiki"] = master().kouiki
+    t.attrs.update(year=ly, Y=Y, M=P["M"], months=months, label=P["label"], span=P["span"],
+                   has_prev=P["has_prev"], has_yoy=P["has_yoy"])
     return t
+
+
+NOTE_2025 = ("2025年分は協会が2026年に数字を見直し（再集計）ました。見直し後の市町村別データを取り込むまで、"
+             "前年との比較は表示していません。")
 
 
 @st.cache_data
@@ -178,6 +208,6 @@ def picker(page: str) -> str:
 
 
 def compare_picker(code: str, page: str):
-    """比べる市町村を選ぶ欄（lib.compare）。"""
+    """県平均と比べる設定（lib.compare）。比べる相手を選ぶ欄は出さない。"""
     from . import compare
     return compare.picker(code, master().sort_index(), page)

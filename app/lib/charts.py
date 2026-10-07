@@ -72,3 +72,10 @@ def signed(x: float, digits: int = 0) -> str:
     """「+5%」「-3%」。四捨五入で0になるときは「±0%」（「-0%」と出さない）。"""
     s = f"{x:+.{digits}%}"
     return "±" + s[1:] if float(s[1:-1]) == 0 else s
+
+
+def times(x: float) -> str:
+    """県平均との比など。1倍以上は「2.3 倍」、1倍未満は「42%」「1%未満」。"""
+    if x >= 1:
+        return f"{x:.1f} 倍"
+    return f"{x:.0%}" if x >= 0.01 else "1%未満"

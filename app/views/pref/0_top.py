@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, data, ui
+from lib import charts, data, muni, ui
 from lib.charts import man, pct, updown, yen
 
 ui.setup("長野県の全体像", "今年の進み具合と、これまでの実績。下のテーマから詳しいページに進めます。")
@@ -170,7 +170,8 @@ full = s[s.index.year == last.year - 1].guests
 occ_nat = data.shukuhaku("00").loc[last, "occupancy"]
 sp = data.riyousha_spots()
 ry = int(sp.year.max())
-top3 = sp[sp.year == ry].groupby("municipality").total.sum().nlargest(3).index
+vt = muni.vtable()
+top3 = vt.visitors.nlargest(3).index.map(vt.name)
 allp = data.shukuhaku_all()
 allp = allp[(allp.metric == "guests") & (allp.pref_code != "00")]
 rk = allp[allp.ym > last - pd.DateOffset(months=12)].groupby("pref_name").value.sum().rank(ascending=False)
@@ -183,7 +184,7 @@ wins = [
     ("season", "03", "いつ来ている？", "月ごとの波、日本人と外国人の違い", f"{last.year - 1}年にいちばん多かったのは <b>{full.idxmax().month}月</b>（年間の {full.max() / full.sum():.0%}）。", "views/pref/3_season.py"),
     ("stay", "04", "宿と稼働率", "宿の種類ごとの客室稼働率", f"{ym}の客室稼働率は <b>{cur.occupancy:.1f}%</b>（全国 {occ_nat:.1f}%）。", "views/pref/4_stay.py"),
     ("spend", "05", "いくら使っている？", "観光消費額と1人あたりの単価", f"{iy}年の観光消費額は <b>{yen(yr.loc[iy, 'spend'])}</b>（前年より{updown(yr.loc[iy, 'spend'] / yr.loc[iy - 1, 'spend'] - 1)}）。", "views/pref/5_spend.py"),
-    ("areas", "06", "県内のどこへ？", "市町村、観光地、県内5エリア", f"観光地の延べ利用者が多いのは {'・'.join(top3)}（{ry}年）。", "views/pref/6_areas.py"),
+    ("areas", "06", "県内のどこへ？", "市町村、観光地、県内5エリア", f"観光で訪れる人が多いのは <b>{'・'.join(top3)}</b>（{vt.attrs['year']}年）。", "views/pref/6_areas.py"),
     ("compare", "07", "他の県と比べると？", "全国の中での長野県の位置", f"延べ宿泊者数は直近12か月で <b>全国{int(rk['長野県'])}位</b>。", "views/pref/7_compare.py"),
     ("forecast", "08", "これからどうなる？", "客室稼働率の12か月先までの見通し", f"{nx.ym.year}年{nx.ym.month}月の客室稼働率は <b>{nx.pred:.0f}%前後</b> の見込み。", "views/pref/8_forecast.py"),
 ]

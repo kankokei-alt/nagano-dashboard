@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from lib import charts, compare, data, muni, ui
-from lib.charts import man, updown
+from lib.charts import man
 
 code = muni.current()
 NAME = muni.name(code)
@@ -104,14 +104,13 @@ if len(g19) >= 2:
 
 # ---- 比べる ----
 with ui.card():
-    ui.block("比べる：観光地の利用者のコロナ前からの回復", f"{ry}年の延べ利用者数の2019年比。両方の年にある観光地だけで計算")
+    ui.block("県平均と比べる：観光地の利用者のコロナ前からの回復", f"{ry}年の延べ利用者数の2019年比。両方の年にある観光地だけで計算")
     both = sp[sp.year.isin([2019, ry])].pivot_table(index=["municipality_code", "spot"], columns="year", values="total", aggfunc="sum").dropna()
     both = both[both[2019] > 0]
     gm = both.groupby(level=0).sum()
     rec = gm[ry] / gm[2019] - 1
     rec_p = both[ry].sum() / both[2019].sum() - 1
     ui.chart(compare.bars(cmp, rec, rec_p, fmt=charts.signed, tickformat="+.0%", pref_label="県全体"))
-    compare.hint(cmp)
     ui.readout(compare.readout(cmp, rec, rec_p, "2019年比", fmt=charts.signed, higher="大きい", lower="小さい", pref_label="県全体")
                + ["観光地が追加・廃止された影響を除くため、2019年と同じ観光地だけを比べています。"],
                source=f"長野県「観光地利用者統計調査」（2019年・{ry}年）")

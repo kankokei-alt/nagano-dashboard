@@ -1,22 +1,18 @@
-"""比べる機能（市町村・広域のページで共通）。
+"""県平均と比べる機能（市町村・広域のページで共通）。
 
-ページ上部の「比べる」欄で、比べたい市町村をチェックボックスで選び、県平均を表示するか決める。
-選んだ内容はページをまたいで覚えておき、各ページの「比べる」カードのグラフに重ねて描く。
-色は、見ている市町村が信州の空（MAIN）、比べる市町村は順に別の色、県平均は灰色の点線。
+各ページの「県平均と比べる」カードで、見ている市町村（広域）と県平均・県全体を並べて描く。
+色は、見ている市町村が信州の空（MAIN）、県平均は灰色（棒は斜線、線は点線）。
+Sel.codes に市町村を入れれば重ねて描けるが、いまは比べる相手を選ぶ欄は出していない。
 """
 from dataclasses import dataclass, field
 
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
 
-from . import charts, ui
+from . import charts
 
-MAX = 5
 PALETTE = [charts.SECOND, charts.THIRD, "#c98a12", "#7a55a8", "#1c97a8"]
 PREF_COLOR = "#6f6d66"
-SEL = "cmp_sel"
-PREF = "cmp_pref"
 
 
 @dataclass
@@ -39,52 +35,9 @@ class Sel:
         return self.names.get(code, code)
 
 
-def _state(key):
-    st.session_state.setdefault(key, [])
-    st.session_state.setdefault(PREF, True)
-
-
-def picker(me: str, master: pd.DataFrame, page: str, unit: str = "市町村") -> Sel:
-    """比べる市町村を選ぶ欄。master は index=コード、列に name・kouiki。"""
-    SK = f"{SEL}_{unit}"  # 市町村と広域で別々に覚える
-    _state(SK)
-    sel = [c for c in st.session_state[SK] if c != me and c in master.index]
-
-    def _toggle(c):
-        cur = st.session_state[SK]
-        st.session_state[SK] = [x for x in cur if x != c] if c in cur else cur + [c]
-
-    def _pref():
-        st.session_state[PREF] = st.session_state[f"cmp_pref_{page}"]
-
-    def _clear():
-        st.session_state[SK] = []
-
-    with st.container(key="cmpbar"):
-        c1, c2, c3 = st.columns([1.1, 4.2, 1.3], vertical_alignment="center")
-        with c1:
-            st.markdown('<div class="cmplabel">比べる</div>', unsafe_allow_html=True)
-        with c2:
-            chips = "".join(f'<span class="chip" style="--c:{PALETTE[i % len(PALETTE)]}">{master.loc[c, "name"]}</span>'
-                            for i, c in enumerate(sel))
-            st.markdown(f'<div class="chips">{chips or "<span class=hint>比べる" + unit + "を選ぶと、各グラフに重ねて表示します</span>"}</div>',
-                        unsafe_allow_html=True)
-        with c3:
-            st.checkbox("県平均", value=st.session_state[PREF], key=f"cmp_pref_{page}", on_change=_pref)
-        with st.expander(f"比べる{unit}を選ぶ（{MAX}つまで）", expanded=False):
-            full = len(sel) >= MAX
-            for k, grp in master.groupby("kouiki", sort=False):
-                st.markdown(f'<div class="cmpk">{k}</div>', unsafe_allow_html=True)
-                with st.container(horizontal=True, gap="small"):
-                    for c, r in grp.iterrows():
-                        if c == me:
-                            continue
-                        on = c in sel
-                        st.checkbox(r["name"], value=on, key=f"cmp_{page}_{c}", on_change=_toggle, args=(c,),
-                                    disabled=full and not on)
-            if sel:
-                st.button("選んだものをすべて外す", key=f"cmp_clear_{page}", on_click=_clear)
-    return Sel(me=me, me_name=master.loc[me, "name"], codes=sel, names=master.name.to_dict(), pref=st.session_state[PREF])
+def picker(me: str, master: pd.DataFrame, page: str = "", unit: str = "市町村") -> Sel:
+    """見ている市町村（広域）と県平均を比べる設定。比べる相手を選ぶ欄は出さない（県平均とだけ比べる）。"""
+    return Sel(me=me, me_name=master.loc[me, "name"], codes=[], names=master.name.to_dict(), pref=True)
 
 
 # ---------- グラフ ----------
@@ -107,7 +60,7 @@ def bars(s: Sel, values: pd.Series, pref_value=None, fmt=lambda v: f"{v:,.0f}", 
     vmin = min([r[1] for r in rows] + [0])
     charts.layout(fig, height=height or max(200, 40 * len(rows) + 70),
                   **({"title": {"text": title, "font": {"size": 14}}} if title else {}))
-    fig.update_xaxes(range=[vmin * 1.45 if vmin < 0 else 0, vmax * 1.4 or 1], tickformat=tickformat,
+    fig.update_xaxes(range=[vmin * 1.45 if vmin < 0 else 0, vmax * 1.4 or 1], tickformat=tickformat, showticklabels=False, showgrid=False,
                      zeroline=bool(vmin < 0), zerolinecolor="rgba(128,128,128,.6)")
     fig.update_yaxes(autorange="reversed", showgrid=False)
     return fig
@@ -161,8 +114,3 @@ def readout(s: Sel, values: pd.Series, pref_value=None, what: str = "", fmt=lamb
         pts.append(f"選んだ中で{what}がいちばん{higher}のは **{s.label(top)}**（{fmt(v[top])}）、"
                    f"いちばん{lower}のは **{s.label(bot)}**（{fmt(v[bot])}）です。")
     return pts
-
-
-def hint(s: Sel, unit: str = "市町村"):
-    if not s.codes:
-        st.caption(f"ページ上部の「比べる」で{unit}を選ぶと、ここに重ねて表示します。")

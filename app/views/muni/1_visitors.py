@@ -2,7 +2,6 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from lib import charts, compare, data, muni, ui
-from lib.charts import man, updown
 
 code = muni.current()
 NAME = muni.name(code)
@@ -58,13 +57,12 @@ with ui.card():
 
 # ---- 比べる ----
 with ui.card():
-    ui.block("比べる：県外の人・泊まりの人の割合", f"{ry}年。選んだ市町村と県全体")
+    ui.block("県平均と比べる：県外の人・泊まりの人の割合", f"{ry}年。県全体と比べて")
     c1, c2 = st.columns(2)
     with c1:
         ui.chart(compare.bars(cmp, t.kengai, kg_p, fmt=lambda x: f"{x:.0%}", title="県外の人の割合", pref_label="県全体", tickformat=".0%"))
     with c2:
         ui.chart(compare.bars(cmp, t.shuku, sh_p, fmt=lambda x: f"{x:.0%}", title="泊まりの人の割合", pref_label="県全体", tickformat=".0%"))
-    compare.hint(cmp)
     ui.readout(compare.readout(cmp, t.kengai, kg_p, "県外の人の割合", fmt=lambda x: f"{x:.0%}", pref_label="県全体")
                + compare.readout(cmp, t.shuku, sh_p, "泊まりの人の割合", fmt=lambda x: f"{x:.0%}", pref_label="県全体"),
                source=f"長野県「観光地利用者統計調査」（{ry}年、各市町村の調査対象の観光地での割合）")
@@ -113,5 +111,5 @@ with ui.card():
         (f"県全体より県外の人も泊まりの人も多い観光地: {'・'.join(hi.spot)}。" if len(hi) else "県全体より県外の人も泊まりの人も多い観光地はありません。"),
     ], source=f"長野県「観光地利用者統計調査」（{ry}年）")
 
-st.info("国籍別（海外のお客さま）の数は市町村ごとには公表されていません。宿泊統計の県内5エリア別の外国人宿泊は「エリア・宿泊・気象」で見られます。")
+st.info("国籍別（海外のお客さま）の数は市町村ごとには公表されていません。宿泊統計の県内5エリア別の外国人宿泊は「宿泊・気象」タブで見られます。")
 ui.sources(["riyousha"])

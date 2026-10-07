@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from lib import charts, compare, data, muni, ui
-from lib.charts import man, updown, yen
+from lib.charts import updown, yen
 
 code = muni.current()
 NAME = muni.name(code)
@@ -60,10 +60,9 @@ with ui.card():
 
 # ---- 比べる ----
 with ui.card():
-    ui.block("比べる：1人あたりの消費額", f"{ry}年。調査対象の観光地での消費額÷延べ利用者数")
+    ui.block("県平均と比べる：1人あたりの消費額", f"{ry}年。調査対象の観光地での消費額÷延べ利用者数")
     pv = t.per_visit.where(t.spend > 0)
     ui.chart(compare.bars(cmp, pv, pref_per[ry], fmt=lambda x: f"{x:,.0f}円", pref_label="県全体"))
-    compare.hint(cmp)
     ui.readout(compare.readout(cmp, pv, pref_per[ry], "1人あたりの消費額", fmt=lambda x: f"{x:,.0f}円", pref_label="県全体"),
                source=f"長野県「観光地利用者統計調査」（{ry}年）")
 

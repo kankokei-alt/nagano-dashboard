@@ -2,14 +2,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from lib import charts, compare, data, muni, ui
+from lib import charts, data, muni, ui
 from lib.charts import man, updown
 
 code = muni.current()
 NAME = muni.name(code)
 ui.setup(f"{NAME}の宿泊・気象", "宿泊（県内5エリア）の動きと、近くの気象観測所の気温と雪。", kicker="市町村")
 code = muni.picker("area")
-cmp = muni.compare_picker(code, "area")
 m = muni.master().loc[code]
 
 ui.insight(
@@ -97,36 +96,5 @@ if st_row is not None:
             pts.append(f"最も新しい冬（{s.index[-1] - 1}〜{s.index[-1] % 100:02d}年）の最深積雪は {s.iloc[-1]:.0f}cm で、それまでの平均（{s.iloc[:-1].mean():.0f}cm）の {s.iloc[-1] / s.iloc[:-1].mean():.0%} でした。")
         ui.readout(pts, source="気象庁「過去の気象データ」。年ごとの値が資料不足の冬は表示していません")
 
-
-# ---- 比べる ----
-def station_of(c):
-    mm = muni.master().loc[c]
-    h = stn[stn.municipality_code == c]
-    if len(h):
-        return h.iloc[0].station
-    k = stn[stn.kouiki == mm.kouiki]
-    return k.iloc[0].station if len(k) else None
-
-
-wx = data.weather()
-wx = wx.assign(season=wx.ym.dt.year + (wx.ym.dt.month >= 8))
-last = int(wx[wx.ym.dt.month == 3].ym.dt.year.max())  # 3月まで観測がそろった最新の冬
-win = wx[wx.season == last].groupby("station").snow_depth_max.max()
-avg = wx[(wx.season < last)].groupby(["station", "season"]).snow_depth_max.max().groupby(level=0).mean()
-codes = [c for c in cmp.all if station_of(c) is not None]
-if codes:
-    with ui.card():
-        ui.block("比べる：冬の雪", f"{last - 1}〜{last % 100:02d}年の冬の最深積雪（最寄りの気象観測所）")
-        vals = pd.Series({c: win.get(station_of(c)) for c in codes})
-        sub = cmp.__class__(me=cmp.me, me_name=cmp.me_name, codes=[c for c in cmp.codes if c in codes],
-                            names={c: f"{cmp.label(c)}（{station_of(c)}）" for c in codes}, pref=False)
-        ui.chart(compare.bars(sub, vals, fmt=lambda x: f"{x:.0f}cm"))
-        compare.hint(cmp)
-        ui.readout([
-            "それぞれの平年（観測開始〜前の冬の平均）との比: "
-            + "、".join(f"{sub.label(c)} {vals[c] / avg[station_of(c)]:.0%}" for c in codes
-                       if pd.notna(vals[c]) and avg.get(station_of(c), 0) > 0) + "。",
-            "同じ観測所を使う市町村は同じ値です（観測所は各広域に1つ以上）。",
-        ], source="気象庁「過去の気象データ」")
 
 ui.sources(["shukuhaku", "weather"])

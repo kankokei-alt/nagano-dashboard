@@ -17,6 +17,8 @@ FILES = [
     ("jnto_monthly.parquet", "訪日外客統計（JNTO）", "全国の訪日外客数、国籍×月（2003年〜）", "jnto"),
     ("weather_monthly.parquet", "過去の気象データ（気象庁）", "10地点（各広域に1つ）の平均気温・降雪量・最深積雪、月別", "weather"),
     ("macro_monthly.parquet", "物価・景気の指標（e-Stat）", "消費者物価指数・景気ウォッチャー・消費者態度指数、月別", "macro"),
+    ("digital_city.parquet", "デジタル観光統計（長野県の市町村×月）", "観光来訪者数。公表値と照合して採用した月だけ", "digital"),
+    ("digital_pref.parquet", "デジタル観光統計（47都道府県×月）", "観光来訪者数。公表値と照合して採用した月だけ", "digital"),
     ("population.parquet", "国勢調査 市町村別人口", "77市町村の総人口（2010・2015・2020年）", "population"),
     ("calendar_monthly.parquet", "祝日・連休カレンダー", "月ごとの休日数・3連休の回数", "holidays"),
 ]
@@ -63,6 +65,16 @@ with ui.card():
         if not bad.empty:
             cols = {"station": "地点", "year": "年", "item": "項目", "reason": "使わない理由"}
             st.dataframe(bad[[k for k in cols if k in bad.columns]].rename(columns=cols), hide_index=True, use_container_width=True)
+    c = data.checks("digital")
+    ok = c[c.adopted]
+    st.markdown(f"**デジタル観光統計オープンデータ（日本観光振興協会）** … {len(c)}か月を照合し、{len(ok)}か月を採用"
+                f"（{'・'.join(sorted({y[:4] + '年' for y in ok.ym}))}の一部または全部）。"
+                "協会のニュースリリースに載る全国計（47都道府県の合計）と月ごとに比べています。")
+    bad = c[~c.adopted].assign(reason=lambda d: d.reason.str.replace(r"（取り込み.*?百万人。", "（", regex=True))
+    grp = bad.groupby("reason").ym.agg(["min", "max", "count"]).reset_index()
+    st.dataframe(grp.rename(columns={"reason": "使わない理由", "min": "最初の月", "max": "最後の月", "count": "月数"}),
+                 hide_index=True, use_container_width=True)
+    st.caption(f"取り込み元: {c.source.iloc[0]}。公表ページの CSV を直接取得できるようになると、再集計後の2025年分も含めて取り込み直します。")
     c = data.checks("macro")
     st.markdown("**消費者物価指数・景気ウォッチャー・消費者態度指数（e-Stat）**")
     st.dataframe(c.rename(columns={"indicator": "指標", "months": "照合した月数", "mismatch": "合わなかった月数", "detail": "メモ"}),
